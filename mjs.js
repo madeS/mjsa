@@ -1,9 +1,9 @@
 /*
-	Mades JavaSctips Alpha-snappets
+	Mades JavaSctips Alpha-snippets
 	author: Andrei Bogarevich
 	site: https://github.com/madeS/mjsa
-	v0.3.5.28
-	Last Mod: 2013-03-02 10:45
+	v0.3.8.32
+	Last Mod: 2013-03-07 16:35
 */
 var mjsa = new (function ($){
 	var mjs_this = this; // [deprecated] - support old application
@@ -43,7 +43,7 @@ var mjsa = new (function ($){
 	}
 	
 	this.print_r = function(arr, level, maxlevel){
-		if (!maxlevel) maxlevel = 10;
+		if (!maxlevel) maxlevel = 5;
 		if (level >= maxlevel) return '';
 		var print_red_text = "";
 		if (!level) level = 0;
@@ -57,14 +57,25 @@ var mjsa = new (function ($){
 					print_red_text += mthis.print_r(value,level+1,maxlevel);
 				} else print_red_text += level_padding + "'" + item + "' => \"" + value + "\"\n";
 			}
-		} else  print_red_text = "===>"+arr+"<===("+typeof(arr)+")";
+		} else  print_red_text = "==>"+arr+"<==("+typeof(arr)+")";
 		return print_red_text;
 	}
 	this.debug_param = function(e){alert(this.print_r(e))}
 
 	// *** selectable support ***
 	this.jSelected = undefined;
-	this.s = function(selector){jSelected = $(selector); return this;}
+	this.s = function(selector){mthis.jSelected = $(selector); return mthis;}
+	
+	// *** easy stand alone timer ***
+	this._innerCircleTimerHandler = undefined;
+	this._innerCircleTimerCallback = function(){}
+	this.circleTimerInit = function(callback,timer){
+		if(mthis._innerCircleTimerHandler){
+			clearTimeout(mthis._innerCircleTimerHandler);
+			mthis._innerCircleTimerCallback = callback;
+			setTimeout("mjsa.callback._innerCircleTimerCallback()", timer);
+		}
+	}
 	
 	// *** inner 3X Ajax ***
 	this._ajax_recurs = 3;
@@ -82,7 +93,7 @@ var mjsa = new (function ($){
 				} else {
 					mthis._ajax_recurs = 3;
 					if (options.error !== undefined ) options.error();
-					else mthis.print_error('Network connection problem (code 0001)',jqXHR, textStatus, errorThrown) // [edit] // 500 code error
+					else mthis.print_error('Network connection problem (code:'+textStatus+')',jqXHR, textStatus, errorThrown) // [edit] // 500 code error
 				}
 			}
 		});
@@ -95,9 +106,9 @@ var mjsa = new (function ($){
 		if(typeof(value)=="number")  {
 			item.animate({scrollTop: value});
 		} else {
-			var sct = jQuery(value).offset().top;
+			var sct = $(value).offset().top;
 			item.animate({scrollTop: sct});
-		} 
+		}
 		return false;
 	}
 	
@@ -106,47 +117,45 @@ var mjsa = new (function ($){
 	this.collectParams = function(selector){
 		if (selector === undefined) return {};
 		var ret = {};
-		jQuery(selector).each(function(indx, element){
-			if (jQuery(this).val() && jQuery(this).attr('name')) {
-				if (jQuery(this).is('input[type=checkbox]')){
-					ret[jQuery(this).attr('name')] = (jQuery(this).is(':checked'))?'1':'0';
-				} else if (jQuery(this).is('input[type=radio]')) {
-					if (jQuery(this).is(':checked')) {
-						ret[jQuery(this).attr('name')] = jQuery(this).val();
+		$(selector).each(function(indx, element){
+			if ($(this).val() && $(this).attr('name')) {
+				if ($(this).is('input[type=checkbox]')){
+					ret[$(this).attr('name')] = ($(this).is(':checked'))?'1':'0';
+				} else if ($(this).is('input[type=radio]')) {
+					if ($(this).is(':checked')) {
+						ret[$(this).attr('name')] = $(this).val();
 					} else {
-						if (ret[jQuery(this).attr('name')] === undefined) {
-							ret[jQuery(this).attr('name')] = '';
+						if (ret[$(this).attr('name')] === undefined) {
+							ret[$(this).attr('name')] = '';
 						}
 					}
 				} else {
-					ret[jQuery(this).attr('name')] = jQuery(this).val();
+					ret[$(this).attr('name')] = $(this).val();
 				}
 			}
 		}); return ret;
 	}
+	this.loadCollectedParams = function(selector,collected){
+		var el;
+		for(var key in collected){
+			el = $(selector+'[name='+key+']');
+			if ((el.attr('type') == 'text') || el.is('textarea')) el.val(collected[key]);
+		}
+	}
 	// easilyPostAjax
 	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, add_callback, add_precall){
 		var data = $.extend(post_obj,this.collectParams(post_selector));
-		if (add_precall != undefined) { 
+		if (add_precall !== undefined) { 
 			if (add_precall(data)) return false;
 		}
-		if (this.wait_message !== undefined) {
-			if (insert_selector !== undefined) {
-				$(insert_selector).html(this.wait_message);
-			}
+		if ((mthis.wait_message !== undefined) && (insert_selector !== undefined)){
+			$(insert_selector).html(mthis.wait_message);
 		}
 		mthis._ajax({
-			url: url,
-			type: 'POST',
-			data: data,
+			url: url, type: 'POST', data: data,
 			success:function(data) {
-				if (insert_selector !== undefined) {
-					//jQuery(insert_selector).html(data);
-					mthis.html(insert_selector,data);
-				}
-				if (add_callback != undefined) { 
-					add_callback(data);
-				}
+				if (insert_selector !== undefined) mthis.html(insert_selector,data);
+				if (add_callback !== undefined) add_callback(data);
 			}
 		});
 		return false;
@@ -160,7 +169,12 @@ var mjsa = new (function ($){
 		if (!opt) opt = {};
 		var noajax = false; if (opt && opt.el) noajax = $(opt.el).attr('noajax');
 		if ((link.indexOf('http') === 0) || !(window.history && history.pushState) || (noajax)) {
-			if (mthis.def.testing) alert('not support html5, or link started from http, or NOAJAX: '+link);
+			if (mthis.def.testing) { //[testing]
+				alert('not support html5, or link started from http, or NOAJAX: '+link);
+				alert('link:'+link);
+				alert('history:'+window.history);
+				alert('history.pushState:'+window.history.pushState);
+			}
 			document.location.href = link; return false;
 		}
 		mthis._get_ajaxShadow().animate({opacity: "show"},200);
@@ -170,7 +184,8 @@ var mjsa = new (function ($){
 				var content_separated = undefined;
 				if (content.indexOf('<ajaxbody_separator/>') !== -1) {
 					content_separated = content.split('<ajaxbody_separator/>');
-					if ((content_separated.length > 1)) { //  && (content.indexOf('<redirect_separator/>') === -1) [edit] something wrong with redirect
+					if ((content_separated.length > 1)) { //  && (content.indexOf('<redirect_separator/>') === -1) [edit] something wrong with redirect 
+														// [hint] redirect realizing on server side
 						if(!opt.nopush){
 							mthis.currentPathname = link;
 							history.pushState({url:link,title:content_separated[0]}, content_separated[0], link);
@@ -179,6 +194,7 @@ var mjsa = new (function ($){
 						if (mthis.def.html5HistoryAjaxOnloadFunc){
 							mthis.def.html5HistoryAjaxOnloadFunc();
 						}
+						if (opt.callback) opt.callback();
 					}
 				} else {
 					mthis.html('body',content);
@@ -187,8 +203,15 @@ var mjsa = new (function ($){
 			},
 			error:function(){
 				mthis._get_ajaxShadow().queue(function(){ $(this).animate({opacity: "hide"},200); $(this).dequeue();});
+				mthis.print_error('Connection error');
 			}
 		});
+	}
+	this.html5AjaxBodyUpdate = function(){
+		var collected = mthis.collectParams('.mjs_save');
+		mthis.html5AjaxBody(location.pathname,{nopush:true,callback:function(){
+			mthis.loadCollectedParams('.mjs_save',collected);
+		}});
 	}
 	this.currentPathname = '';
 	this.html5HistoryAjaxInit = function(selector){
@@ -207,7 +230,6 @@ var mjsa = new (function ($){
 			window.addEventListener("popstate", function(e) {
 				//alert(location.pathname +' - '+mthis.currentPathname);
 				if (location.pathname != mthis.currentPathname){
-					//alert(2);
 					mthis.html5AjaxBody(location.pathname,{nopush:true});//(e.url); not working :(
 				}
 				e.preventDefault();
@@ -221,7 +243,7 @@ var mjsa = new (function ($){
 	// in test type=[undefined, a_selector, hash]
 	this.location = function(link,type){
 		if (type !== undefined) {
-			if (type === 'a_selector') {
+			if (type === 'a_selector') { //?[deprecated]
 				var addressString = document.location.href;
 				link = $(link).attr('href');
 				if (mthis.def.html5HistoryAjax) {
@@ -309,6 +331,22 @@ var mjsa = new (function ($){
 				needHtml = false;
 			}
 		}
+		if (content.indexOf('<html_prepend_separator/>') !== -1) {
+			content_separated = content.split('<html_prepend_separator/>');
+			if (content_separated.length > 1) {
+				par = content_separated[1].split('<html_prepend_to/>');
+				if (par.length > 1){
+					$(par[0]).append(par[1]);
+				}
+			}
+		}
+		if (content.indexOf('<prepend_separator/>') !== -1) {
+			content_separated = content.split('<prepend_separator/>');
+			if (content_separated.length > 1){
+				jSel.append(content_separated[1]);
+				needHtml = false;
+			}
+		}
 		if (content.indexOf('<stop_separator/>') !== -1) needHtml = false;
 		if (needHtml) {
 			jSel.html(content);
@@ -317,7 +355,7 @@ var mjsa = new (function ($){
 	}
 	this.grabResponseTag = function(response,tag){
 		if (response.indexOf(tag) !== -1) {
-			content_separated = response.split(tag);
+			var content_separated = response.split(tag);
 			if (content_separated.length > 1) {
 				return content_separated[1];
 			}
@@ -330,23 +368,23 @@ var mjsa = new (function ($){
 		var m_auto_interval = false;
 		var m_auto_last_query = '';
 		$(document).on('keyup', input_selector, function(){
-			param['query'] =jQuery(this).val();
-			var to_selector = jQuery(this).attr('m_auto_to');
+			param['query'] =$(this).val();
+			var to_selector = $(this).attr('m_auto_to');
 			if (before_call !== undefined) {
 				param['query'] = before_call(param['query'],input_selector); // $.extend if [edit] [no_support old versions]
 				if (param['query'] === false) return false;
 			}
-			var url = jQuery(this).attr('m_auto_url');
+			var url = $(this).attr('m_auto_url');
 			if (m_auto_interval) clearTimeout(m_auto_interval);
 			m_auto_interval = setTimeout(function() {
 				clearTimeout(m_auto_interval);
 				m_auto_last_query = param['query'];
-				jQuery.post(url, param, function(data) {
+				$.post(url, param, function(data) {
 					try {
 						if (after_call !== undefined) {
 							after_call(param['query'],data);
 						}
-						var obj = jQuery.parseJSON(data);
+						var obj = $.parseJSON(data);
 						if (obj['query'] == m_auto_last_query) {
 							$(to_selector).html(obj['response']);
 						}
@@ -390,14 +428,15 @@ var mjsa = new (function ($){
 			}
 		});
 	}
-	this.getByteLength = function(str){ // experemental
+	//[experemental]
+	this.getByteLength = function(str){ 
 		return encodeURIComponent(str).replace(/%../g, 'x').length;
 	}
 	return this;
 })(jQuery);
 
 // V V V ***** DEFFAULT MODULES ***** V V V
-// BEGIN SCROLL POPUP
+// BEGIN SCROLL POPUP MODULE
 mjsa = (function ($){
 	this.scrollPopup = (function($){
 		var defOptions = {
@@ -439,7 +478,7 @@ mjsa = (function ($){
 					str_html += '<div class="popup_scroll_content"><br/><br/><br/>What?</div>';
 				str_html += '</div>';
 			str_html += '</div>';
-			$(options['selector']).html(str_html);		
+			$(options['selector']).html(str_html);
 			return false;
 		}
 		m._showShadow = function(selector){
@@ -485,7 +524,7 @@ mjsa = (function ($){
 				if (selector.indexOf('#') !== -1) {
 					$('body').append('<div id="'+selector.substring(selector.indexOf('#')+1)+'"> </div>')
 				} else {
-					alert('Невозможно создать элемент: '+ selector);
+					alert('Cant create element: '+ selector);
 				}
 			}
 			return false;
@@ -543,6 +582,19 @@ mjsa = (function ($){
 /*
 **************************************************************
 Version History
+
+v0.3.8.32
+ext func: html (prepand_sepearator, html_prepand_sepearator)
+add func: circleTimerInit (easy stand alone timer)
+some easy fixes
+
+v0.3.7.31
+add func: loadCollectedParams
+ext func: html5AjaxBodyUpdate
+
+v0.3.6.30
+add func:html5AjaxBodyUpdate
+some easy fixes
 
 v0.3.5.29
 some easy fixes
@@ -650,15 +702,10 @@ v0.1.0.1
 +add func: html (+redirect separator) (test)
 +add func: location (+a_separator)(test)
 
-
 /////////////////////////////////////////////////////
 //// FUTURE /////////////////////////////////////////
 /////////////////////////////////////////////////////
 1) ajax upload
 2) geoLocation
 
-
-
 */
-
-
