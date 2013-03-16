@@ -2,8 +2,8 @@
 	Mades JavaSctips Alpha-snippets
 	author: Andrei Bogarevich
 	site: https://github.com/madeS/mjsa
-	v0.3.8.32
-	Last Mod: 2013-03-07 16:35
+	v0.3.10.34
+	Last Mod: 2013-03-15 12:15
 */
 var mjsa = new (function ($){
 	var mjs_this = this; // [deprecated] - support old application
@@ -12,16 +12,17 @@ var mjsa = new (function ($){
 	this.wait_message = undefined; // in easilyAjax - not recommended
 	this.def = {
 		testing: true,
-		appMeetVersion: 200, //300, // set 200 for old application
-		html5HistoryAjax: false,  //true, // set false for old application, and for not support body ajax server side
+		appMeetVersion: 300, //300, // set 200 for old application
+		html5HistoryAjax: true,  //true, // set false for old application, and for not support body ajax server side
 		html5HistoryAjax_inselector: '#body_cont',  //body, 
 		html5HistoryAjaxOnloadFunc: undefined,  // reAttach events for dom and etc. 
-		hintsContClass: 'undefined', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
+		hintsContClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
 		hintClass: 'mjs_hint',
 		hintSuccess: 'mjs_hint_success',
 		hintError: 'mjs_hint_error',
 		hintSimple: 'mjs_hint_simple',
-		hintLiveMs: 10000
+		hintLiveMs: 10000,
+		htmlInterception: undefined
 	}
 	
 	//  *** error message ***
@@ -66,18 +67,18 @@ var mjsa = new (function ($){
 	this.jSelected = undefined;
 	this.s = function(selector){mthis.jSelected = $(selector); return mthis;}
 	
-	// *** easy stand alone timer ***
+	// *** CircleTimer - easy stand alone timer ***
 	this._innerCircleTimerHandler = undefined;
 	this._innerCircleTimerCallback = function(){}
 	this.circleTimerInit = function(callback,timer){
 		if(mthis._innerCircleTimerHandler){
-			clearTimeout(mthis._innerCircleTimerHandler);
-			mthis._innerCircleTimerCallback = callback;
-			setTimeout("mjsa.callback._innerCircleTimerCallback()", timer);
+			clearInterval(mthis._innerCircleTimerHandler);
 		}
+		mthis._innerCircleTimerCallback = callback;
+		setInterval("mjsa._innerCircleTimerCallback()", timer);
 	}
-	
-	// *** inner 3X Ajax ***
+
+	// *** inner x3 Ajax ***
 	this._ajax_recurs = 3;
 	this._ajax = function(options){
 		newOptions = JSON.parse(JSON.stringify(options));
@@ -181,6 +182,7 @@ var mjsa = new (function ($){
 		mthis._ajax({
 			url: link, type: 'GET', data: {body_ajax: 'true'},
 			success:function(content){ 
+				var collected = mthis.collectParams('.mjs_save');
 				var content_separated = undefined;
 				if (content.indexOf('<ajaxbody_separator/>') !== -1) {
 					content_separated = content.split('<ajaxbody_separator/>');
@@ -189,6 +191,7 @@ var mjsa = new (function ($){
 						if(!opt.nopush){
 							mthis.currentPathname = link;
 							history.pushState({url:link,title:content_separated[0]}, content_separated[0], link);
+							document.title = content_separated[0];
 						}
 						mthis.html(mthis.def.html5HistoryAjax_inselector,content_separated[1]);
 						if (mthis.def.html5HistoryAjaxOnloadFunc){
@@ -199,6 +202,7 @@ var mjsa = new (function ($){
 				} else {
 					mthis.html('body',content);
 				}
+				mthis.loadCollectedParams('.mjs_save',collected);
 				mthis._get_ajaxShadow().queue(function(){ $(this).animate({opacity: "hide"},200); $(this).dequeue();});
 			},
 			error:function(){
@@ -208,10 +212,7 @@ var mjsa = new (function ($){
 		});
 	}
 	this.html5AjaxBodyUpdate = function(){
-		var collected = mthis.collectParams('.mjs_save');
-		mthis.html5AjaxBody(location.pathname,{nopush:true,callback:function(){
-			mthis.loadCollectedParams('.mjs_save',collected);
-		}});
+		mthis.html5AjaxBody(location.pathname+location.search,{nopush:true,callback:function(){}});
 	}
 	this.currentPathname = '';
 	this.html5HistoryAjaxInit = function(selector){
@@ -225,12 +226,12 @@ var mjsa = new (function ($){
 				mthis.html5AjaxBody($(this).attr('href'),{el:this});
 			return false;
 		});
-		mthis.currentPathname = location.pathname;
+		mthis.currentPathname = location.pathname+location.search;
 		if ((window.history && history.pushState)){
 			window.addEventListener("popstate", function(e) {
-				//alert(location.pathname +' - '+mthis.currentPathname);
-				if (location.pathname != mthis.currentPathname){
-					mthis.html5AjaxBody(location.pathname,{nopush:true});//(e.url); not working :(
+				//alert(location.pathname+location.search +' - '+mthis.currentPathname);
+				if (location.pathname+location.search != mthis.currentPathname){
+					mthis.html5AjaxBody(location.pathname+location.search,{nopush:true});//(e.url); not working :(
 				}
 				e.preventDefault();
 			}, false)
@@ -280,6 +281,10 @@ var mjsa = new (function ($){
 			if (content.indexOf('<mjs_separator/>') === -1) { // quick end
 				jSel.html(content);
 				return jSel;
+			} else {
+				if (mthis.def.htmlInterception){
+					if (!mthis.def.htmlInterception(content)) return jSel; // interception (like <redirect_separator/>/auth)
+				}
 			}
 		} 
 		if (content.indexOf('<redirect_separator/>') !== -1) {
@@ -442,9 +447,10 @@ mjsa = (function ($){
 		var defOptions = {
 			width: 600,
 			top: 100,
+			padding_hor: 15,
 			modelName: 'mjsa.scrollPopup', // [versionedit]
 			mainContainer: '#container',
-			loading_image: '/views/i/loadermap.gif',
+			loading_image: '/pub/images/loader.gif',
 			close_btn_style: undefined,
 			zindex: 19,
 			call_open:undefined,
@@ -456,8 +462,8 @@ mjsa = (function ($){
 			var str_html = '<style>';
 			str_html += '	.popup_scroll_shadow{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6; z-index: '+options['zindex']+';}';
 			str_html += '	.popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options['zindex']+1)+';}';
-			str_html += '	.popup_scroll{ display: none; width: '+options['width']+'px; top: '+options.top+'px; left: 50%; margin-left: -'+(options['width']/2)+'px; position: fixed; z-index: '+(options['zindex']+1)+'; padding: 0 0 20px; min-height:100px; }';
-			str_html += '	.popup_scroll_body{ position: relative;  padding: 13px 28px 15px; line-height: normal; background:#fff; }';
+			str_html += '	.popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options['zindex']+1)+'; padding: 0 0 20px; min-height:100px; }';
+			str_html += '	.popup_scroll_body{ position: relative;  padding: 13px '+options.padding_hor+'px 15px; line-height: normal; background:#fff; }';
 			if (options['close_btn_style'] !== undefined) {
 				str_html += '	.close_popup_scroll{ '+options['close_btn_style']+' }';
 			}
@@ -484,7 +490,7 @@ mjsa = (function ($){
 		m._showShadow = function(selector){
 			var options = $(selector).data('options');
 			var nowpos = self.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop);
-			var con_width = $('#container').css('width');
+			var con_width = $(options.mainContainer).css('width');
 			var body_width = $('body').css('width');
 			var nowpos1 = parseInt(nowpos);
 			nowpos1+=50;
@@ -582,6 +588,14 @@ mjsa = (function ($){
 /*
 **************************************************************
 Version History
+
+v0.3.10.34
+ext func: html (def.htmlInterception)
+fix func: html5historyAjax (location.pathname+location.search)
+
+v0.3.9.33
+fix: circleTimer
+mjs_save in AjaxBody (?)
 
 v0.3.8.32
 ext func: html (prepand_sepearator, html_prepand_sepearator)
