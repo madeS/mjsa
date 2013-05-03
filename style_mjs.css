@@ -1,4 +1,4 @@
-.mjs_hints_container{ position: fixed; top: 0; left: 0; width: 400px;}
+.mjs_hints_container{ position: fixed; top: 0; left: 0; width: 400px; z-index:30;}
 .mjs_hints_container .mjs_hint {float:left; clear:left; margin: 8px; color: #333; font-weight: bold; font-size: 14px; padding: 5px; border-radius: 3px;}
 .mjs_hints_container .mjs_hint.mjs_hint_success { background-color: #cfc;}
 .mjs_hints_container .mjs_hint.mjs_hint_error { background-color: #fcc;}
