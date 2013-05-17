@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.0.47 Beta
-	Last Mod: 2013-04-29 14:50
+	v0.5.1.49
+	Last Mod: 2013-05-07 14:50
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -386,8 +386,8 @@ var mjsa = new (function ($){
 	};
 	// options = {
 	//	timeout: 60000//milliseconds
-	//	noLocationCall: function(){}
-	//	notSupportCall: function(){} //
+	//	noLocationCall: function(){} // unavailable get Location
+	//	notSupportCall: function(){} 
 	//	accessDeniedCall: function(){} //
 	//	unavailablePosCall: function(){}
 	//	timeoutCall: function(){}
@@ -472,7 +472,7 @@ var mjsa = new (function ($){
 						if (after_call !== undefined) {
 							after_call(param['query'],data);
 						}
-						var obj = $.parseJSON(data);
+						var obj = JSON.parse(data); // $.parseJSON
 						if (obj['query'] === m_auto_last_query) {
 							$(to_selector).html(obj['response']);
 						}
@@ -631,10 +631,13 @@ mjsa = (function ($){
 		m.open = function(selector, url, content){
 			this._showShadow(selector);
 			this._loading(selector,true);
-			if (content !== undefined) {
-				$(selector + ' .popup_scroll_content').html(content);
-			}
 			var thethis = this;
+			if (content !== undefined && content !== '') {
+				this._loading(selector,false);
+				this._showPopup(selector);
+				$(selector + ' .popup_scroll_content').html(content);
+				return false;
+			}
 			if (url !== undefined) {
 				$.get(url,{},function(data){
 					thethis._loading(selector,false);
@@ -708,6 +711,12 @@ mjsa = (function ($){
 /* 
 **************************************************************
 Version History
+
+v0.5.1.49
+fix: autoSearch $.parseJSON -> JSON.parse
+
+v0.5.1.48
+fix: scrollPopup - from content
 
 v0.5.0.47
 add func: webStorage
@@ -906,10 +915,5 @@ First tasks
 -errors with scrollpopup open url , 500 example
 
 -print_hint .delay - use (page255) (release up)
--set submodules html5history and etc with creating deprecated addon (minor version up)
-
-
-
-
 
 */
