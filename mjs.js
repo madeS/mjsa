@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.1.49
-	Last Mod: 2013-05-07 14:50
+	v0.5.9.62
+	Last Mod: 2013-07-11 17:43
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -12,9 +12,10 @@ var mjsa = new (function ($){
 	this.wait_message = undefined; // in easilyAjax - not recommended
 	this.def = {
 		testing: false,
-		appMeetVersion: 500, // old application not supported
+		appMeetVersion: 550, // old application not supported
 		bodyAjax: true,  //true, // set false for old application, and for not support body ajax server side
 		bodyAjax_inselector: '#body_cont',  //body, 
+		bodyAjax_timeout: 5000,
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc. 
 		haSaveSelector: '.mjs_save', // history ajax save forms inputs selector
 		hintsContClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
@@ -97,6 +98,7 @@ var mjsa = new (function ($){
 			error: function(jqXHR, textStatus, errorThrown) {
 				if (mthis._ajax_recurs > 0) {
 					mthis._ajax_recurs--;
+					options.timeout = undefined;
 					mthis._ajax(options);
 				} else {
 					mthis._ajax_recurs = 3;
@@ -120,13 +122,26 @@ var mjsa = new (function ($){
 		return false;
 	};
 	
+	// for js
+	this.getPosition = function(e){
+		var left = 0, top = 0;
+		while (e.offsetParent){
+			left += e.offsetLeft;
+			top  += e.offsetTop;
+			e = e.offsetParent;
+		}
+		left += e.offsetLeft;
+		top  += e.offsetTop;
+		return {x:left, y:top};
+	};
+	
 	// *** easily ajax ***
 	// collects params
 	this.collectParams = function(selector){
 		if (selector === undefined) return {};
 		var ret = {};
 		$(selector).each(function(indx, element){
-			if ($(this).val() && $(this).attr('name')) {
+			if ($(this).attr('name')) {
 				if ($(this).is('input[type=checkbox]')){
 					ret[$(this).attr('name')] = ($(this).is(':checked'))?'1':'0';
 				} else if ($(this).is('input[type=radio]')) {
@@ -139,6 +154,10 @@ var mjsa = new (function ($){
 					}
 				} else if ($(this).is('[take=html]')) {
 					ret[$(this).attr('name')] = $(this).html();
+				} else if ($(this).hasClass('ckeditor')){
+					try {
+						ret[$(this).attr('name')] = CKEDITOR.instances[$(this).attr('id')].getData();
+					} catch (ex) {console.log('CKEDITOR error - cant get data');}
 				} else {
 					ret[$(this).attr('name')] = $(this).val();
 				}
@@ -187,6 +206,7 @@ var mjsa = new (function ($){
 				alert('history:'+window.history);
 				alert('history.pushState:'+window.history.pushState);
 			}
+			if (document.location.href === link) { document.location.reload(); return false;}
 			document.location.href = link; return false;
 		}
 		if (!$(mthis.def.bodyAjax_inselector).length){
@@ -202,7 +222,7 @@ var mjsa = new (function ($){
 		}
 		mthis._get_ajaxShadow().animate({opacity: "show"},200);
 		mthis._ajax({
-			url: link, type: 'GET', data: {body_ajax: 'true'},
+			url: link, type: 'GET', data: {body_ajax: 'true'}, timeout:mthis.def.bodyAjax_timeout,
 			success:function(content){ 
 				var collected = mthis.collectParams(mthis.def.haSaveSelector);
 				var content_separated = undefined;
@@ -214,7 +234,7 @@ var mjsa = new (function ($){
 						mthis.currentPathname = link;
 						if(!opt.nopush){
 							history.pushState({url:link,title:content_separated[0]}, content_separated[0], link);
-							mthis.scrollTo(0);
+							if (!opt.noscroll) mthis.scrollTo(0);
 							document.title = content_separated[0];
 						}
 						mthis.html(mthis.def.bodyAjax_inselector,content_separated[1]);
@@ -378,6 +398,105 @@ var mjsa = new (function ($){
 		}
 		return false;
 	};
+	/*
+	var options = {
+		input_file : '#uploadfile',
+		url: '/auth/upload_profile_photo',
+		name: 'thefiles',
+		params: {},
+		unsupport: function(){alert('Browser is deprecated and not support');},
+		before_call: function(files){}, // return false to cancel upload
+		pre_call: function(files){}, 
+		process_call: function(e,obj){},
+		after_call: function(obj){},
+		success_call: function(obj,response){},
+		error_call: function(obj){},
+		max_size: 823000,
+		max_size_exception: function(file){},
+		max_files: 15,
+		max_files_exception: function(file){},
+		allow_ext: ['jpg','jpeg','png','gif'],
+		allow_ext_exception: function(file){}
+	};
+	*/
+	this.upload = function(opt){
+		// TODO: upload drag and drop
+		// TODO: abort
+		if (!opt) opt = {};
+		var http = null;
+		if (!opt.url) opt.url = '/upload'
+		if (opt.input_file !== undefined){
+			$(opt.input_file).on('change',function(event){
+				var files_info = $(this)[0].files;
+				if (files_info === undefined) {
+					if (opt.unsupport) opt.unsupport();
+					else mthis.print_error('Browser is deprecated and not supported');
+				}
+				if (!files_info.length) return false;
+				http = mthis._upload(files_info,opt);
+			});
+		}
+		return http;
+	};
+	this._upload = function(files_info,opt){
+		if (opt.bafore_call && opt.bafore_call(files_info) === false) return false;
+		var files = [];
+		for (var i = 0; i < files_info.length; i++) {
+			if (opt.max_size && files_info[i].size && files_info[i].name && files_info[i].size > opt.max_size){
+				if (opt.max_size_exception) opt.max_size_exception(files_info[i]);
+				else mthis.print_error('File '+ files_info[i].name + ' is too large. Max file size is '+ parseInt(opt.max_size /1024) + ' KB.');
+				continue;
+			}
+			if (opt.allow_ext && files_info[i].name){
+				if (!mthis.in_array(files_info[i].name.slice(files_info[i].name.lastIndexOf('.')+1).toLowerCase(), opt.allow_ext)){
+					if (opt.allow_ext_exception) opt.allow_ext_exception(files_info[i]);
+					else mthis.print_error('File '+ files_info[i].name + ' is not allowed');
+					continue;
+				}
+			}
+			if (opt.max_files && files.length >= opt.max_files){
+				if (opt.max_files_exception) opt.max_files_exception(files_info[i]);
+				else mthis.print_error('File '+ files_info[i].name + ' is not to be upload. Max files to upload is '+opt.max_files+' .' );
+				continue;
+			}
+			files.push(files_info[i]);
+		}
+		var http = new XMLHttpRequest();
+		if (http.upload && http.upload.addEventListener) {
+			http.upload.addEventListener('progress',function(e) {
+				if (e.lengthComputable && opt.process_call) opt.process_call(e,{loaded:e.loaded, total:e.total});
+			},false);
+			http.onreadystatechange = function () {
+				if (this.readyState == 4) {
+					opt.after_call && opt.after_call(this);
+					if(this.status == 200) {
+						opt.success_call && opt.success_call(this,this.response);
+					} else {
+						opt.error_call && opt.error_call(this);
+					}
+				}
+			};
+			http.upload.addEventListener('load',function(e) {
+				// Событие после которого также можно сообщить о загрузке файлов.// Но ответа с сервера уже не будет.// Можно удалить.
+			});
+			http.upload.addEventListener('error',function(e) {
+				console.log('m_error'); console.log(e); // Паникуем, если возникла ошибка!
+			});
+		}
+		var form = new FormData(); 
+		form.append('path', '/');
+		if (opt.params){
+			for (var key in opt.params) form.append(key, opt.params[key]);
+		}
+		if (!opt.name) opt.name = 'thefiles';
+		for (var i = 0; i < files.length; i++) {
+			form.append(opt.name+'[]', files[i]);
+		}
+		if (opt.pre_call) opt.pre_call(files);
+		http.open('POST', opt.url);
+		http.send(form);
+		return http;
+	};
 	
 	// geoLocation by GPS 
 	this._geoLocationDefCall = function(position){
@@ -446,41 +565,70 @@ var mjsa = new (function ($){
 		return false;
 	};
 	
-	// html autocomliate [need ext]
-	// autoSearch('#someInput',{addit:'secondAutocompleae'},function(query,input_selector){
-	//				if (query === '') return false; // interception request
-	//				else return query; // returning query important
-	//			}, function(query,response){ alert('success response');})
-	// input_selector attrs[m_auto_to='insert result in',]
-	this.autoSearch = function(input_selector,param,before_call,after_call){
-		var m_auto_interval = false;
-		var m_auto_last_query = '';
-		$(document).on('keyup', input_selector, function(){
-			param['query'] =$(this).val();
-			var to_selector = $(this).attr('m_auto_to');
-			if (before_call !== undefined) {
-				param['query'] = before_call(param['query'],input_selector); // $.extend if [edit] [no_support old versions]
-				if (param['query'] === false) return false;
+
+	
+	// TODO: up key 
+	// TODO: down key
+	// TODO: enter key
+	/* 
+	opt = {
+		to_selector: '#to',
+		url: '/ajax/autocomlete'
+		param: {}, // aditional POST params as default
+		collect: '.ac_param', // collect values to param
+		minchars: 3
+		call_before: function(param,el,keyup_event){
+			if (param.query.length < 3) {clear(); return false;}
+			if (iWantAddParam){
+				param.newparam = 'myvalue';
+				return param;
 			}
-			var url = $(this).attr('m_auto_url');
-			if (m_auto_interval) clearTimeout(m_auto_interval);
-			m_auto_interval = setTimeout(function() {
-				clearTimeout(m_auto_interval);
-				m_auto_last_query = param['query'];
-				$.post(url, param, function(data) {
+			return true;
+		}, some user interception
+		call_after: function(param,response)
+	}
+	*/
+	//[need test]
+	this.autocomplete = function(input_selector,opt){
+		if (!opt) opt = {};
+		if (!opt.to_selector) opt.to_selector='#test';
+		var hndlr = null;
+		var last_query = '';
+		$(document).on('keyup', input_selector, function(e){
+			if (!opt.param) opt.param = {};
+			if (opt.url === undefined) opt.url = '';
+			var self = this;
+			if (hndlr) clearTimeout(hndlr);
+			hndlr = setTimeout(function() {
+				clearTimeout(hndlr); //?
+				if (opt.collect){
+					opt.param = $.extend(opt.param,mthis.collectParams(opt.collect));
+				}
+				opt.param.query = $(self).val();
+				if (opt.minchars){
+					if (opt.param.query.length < opt.minchars){
+						$(opt.to_selector).html('').hide();
+						return false;
+					}
+				}
+				if (opt.call_before !== undefined) {
+					var ret = opt.call_before(opt.param,this,e);
+					if (ret === false) return false;
+					if (ret.query !== undefined) opt.param = ret;
+				}
+				last_query = opt.param.query;
+				$.post(opt.url, opt.param, function(data) {
 					try {
-						if (after_call !== undefined) {
-							after_call(param['query'],data);
-						}
-						var obj = JSON.parse(data); // $.parseJSON
-						if (obj['query'] === m_auto_last_query) {
-							$(to_selector).html(obj['response']);
+						var obj = JSON.parse(data);
+						if (obj.query === last_query) {
+							if (opt.call_after === undefined || opt.call_after(opt.param,data) !== false) {
+								$(opt.to_selector).show().html(obj.response);
+							}
 						}
 					} catch(ex) {
-						alert('search error!');
-						alert(data);
+						console.log('search error: response is ="'+data+'"');
 					}
-					m_auto_interval = false;
+					hndlr = false;
 				});
 			}, 400);
 			return true;
@@ -512,7 +660,12 @@ var mjsa = new (function ($){
 	this.getByteLength = function(str){ 
 		return encodeURIComponent(str).replace(/%../g, 'x').length;
 	};
-	
+	this.in_array = function(needle, haystack){
+		var found = false, key;
+		for (key in haystack) {
+			if (haystack[key] === needle){ found = true; break; }
+		} return found;
+	};
 
 	
 	return this;
@@ -521,6 +674,7 @@ var mjsa = new (function ($){
 // V V V ***** DEFFAULT MODULES ***** V V V
 // BEGIN SCROLL POPUP MODULE
 mjsa = (function ($){
+	var mthis = this;
 	this.scrollPopup = (function($){
 		var defOptions = {
 			width: 600,
@@ -536,10 +690,16 @@ mjsa = (function ($){
 			call_close:undefined
 		};
 		var m = {};
-		m.openedSelectors = []; //[edit] 
-		//add support escape button to close opened popups
-		// add save all opened popups
-		// add functions closing all popups
+		m.openedSelectors = {};
+		m.closeAll = function(){
+			for(var key in m.openedSelectors){
+				if (m.openedSelectors[key]) m.close(key);
+			}
+		}
+		// [TODO:]
+		// 1)add support escape button to close opened popups
+		// 2)add save all opened popups
+		// 3)add functions closing all popups
 		m._createPopup = function(options){
 			// style
 			var str_html = '<style>';
@@ -555,7 +715,7 @@ mjsa = (function ($){
 			// shadow
 			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
 			// popup container
-			str_html += '<div class="popup_scroll_loading"><img src="'+options.loading_image+'" alt="loading" style="margin: 0 auto;" /></div>';
+			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"><img src="'+options.loading_image+'" alt="loading" style="margin: 0 auto;" /></div>';
 			str_html += '<div class="popup_scroll toggle_popup_scroll">';
 				// popup body
 				str_html += '<div class="popup_scroll_body">';
@@ -629,6 +789,7 @@ mjsa = (function ($){
 			return false;
 		};
 		m.open = function(selector, url, content){
+			m.openedSelectors[selector] = true;
 			this._showShadow(selector);
 			this._loading(selector,true);
 			var thethis = this;
@@ -639,10 +800,17 @@ mjsa = (function ($){
 				return false;
 			}
 			if (url !== undefined) {
-				$.get(url,{},function(data){
-					thethis._loading(selector,false);
-					thethis._showPopup(selector);
-					mjsa.html(selector + ' .popup_scroll_content',data);
+				mthis._ajax({
+					url: url, type: 'GET', data: {},
+					success:function(data){ 
+						thethis._loading(selector,false);
+						thethis._showPopup(selector);
+						mjsa.html(selector + ' .popup_scroll_content',data);
+					},
+					error:function(jqXHR, textStatus, errorThrown){
+						thethis.close(selector);
+						mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+					}
 				});
 			} else {
 				this._loading(selector,false);
@@ -653,6 +821,7 @@ mjsa = (function ($){
 		m.close = function(selector){
 			var options = jQuery(selector).data('options');
 			if (!options) return false;
+			this._loading(selector,false); 
 			$(options.selector+' .toggle_popup_scroll').hide();
 			$(options.mainContainer).css('position', 'relative');
 			$(options.mainContainer).css('top', 'auto');
@@ -662,6 +831,7 @@ mjsa = (function ($){
 				options.call_close();
 			}
 			$(selector + ' .popup_scroll_content').html('');
+			m.openedSelectors[selector] = undefined;
 			return false;
 		};
 		m.content = function(selector,content){
@@ -681,8 +851,53 @@ mjsa = (function ($){
 mjsa = (function ($){
 	var mthis = this;
 
-	if (mthis.def.appMeetVersion < 500) {
+	if (mthis.def.appMeetVersion < 550) {
 		//[deprecated functions]
+
+		// html autocomliate [need ext]
+		// autoSearch('#someInput',{addit:'secondAutocompleae'},function(query,input_selector){
+		//				if (query === '') return false; // interception request
+		//				else return query; // returning query important
+		//			}, function(query,response){ alert('success response');})
+		// input_selector attrs[m_auto_to='insert result in',]
+		//[deprecated]
+		this.autoSearch = function(input_selector,param,before_call,after_call,options){
+			if (!options) options = {};
+			var m_auto_interval = false;
+			var m_auto_last_query = '';
+			$(document).on('keyup', input_selector, function(){
+				param['query'] =$(this).val();
+				var to_selector = options.to_selector || $(this).attr('m_auto_to');
+				if (before_call !== undefined) {
+					param['query'] = before_call(param['query'],input_selector); // $.extend if [edit] [no_support old versions]
+					if (param['query'] === false) return false;
+				}
+				var url = options.url || $(this).attr('m_auto_url');
+				if (m_auto_interval) clearTimeout(m_auto_interval);
+				m_auto_interval = setTimeout(function() {
+					clearTimeout(m_auto_interval);
+					m_auto_last_query = param['query'];
+					$.post(url, param, function(data) {
+						try {
+							if (after_call !== undefined) {
+								after_call(param['query'],data);
+							}
+							var obj = JSON.parse(data); // $.parseJSON
+							if (obj['query'] === m_auto_last_query) {
+								$(to_selector).html(obj['response']);
+							}
+						} catch(ex) {
+							alert('search error!');
+							alert(data);
+						}
+						m_auto_interval = false;
+					});
+				}, 400);
+				return true;
+			});
+			return false;
+		};
+		
 	}
 	
 	// [experemental]
@@ -711,6 +926,50 @@ mjsa = (function ($){
 /* 
 **************************************************************
 Version History
+
+v0.5.9.62 (2013-07-11)
+fix: upload (http undefined error)
+ext: _ajax (first request timeout)
+for bodyajax: timeout 5000ms
+
+v0.5.8.61 (2013-07-08)
+fix: bodyAjaxUpdate in old browsers - reload.
+
+v0.5.8.60 (2013-07-07)
+scrollPopup: save opened popups, and add closeAll func
+
+v0.5.7.59
+upload: return http for abort
+
+v0.5.7.58 (2013-07-06)
+Uploading files by html5 FormData
+func: in_array, upload
+
+v0.5.6.57 (2013-07-05)
+fix: autocomplete(minchars fix)
+
+v0.5.6.56 (2013-07-03)
+scrollPopup: use mjsa._ajax, if ajax error - autoclose popup and print hint
+
+v0.5.5.55
+func: getPosition (full offset for dom element)
+
+v0.5.4.54
+func: autocomplete[need ext]
+deprecated autoSearch
+
+v0.5.3.53
+ext: autoSearch (options)
+
+v0.5.2.52
+ext: bodyAjax (opt.noscroll)
+
+v0.5.2.51
+ext: collectParams (support ckeditor)
+fix: collectParams (val not required)
+
+v0.5.1.50
+fix: scrollPopup hide loading if not loaded
 
 v0.5.1.49
 fix: autoSearch $.parseJSON -> JSON.parse
@@ -902,12 +1161,13 @@ v0.1.0.1
 /////////////////////////////////////////////////////
 //// FUTURE /////////////////////////////////////////
 /////////////////////////////////////////////////////
-1) ajax upload
+1) autoSearch[deprecated params] set new [edit] ++
+2) ajax upload
 http://learn.javascript.ru/xhr-onprogress
 http://habrahabr.ru/post/154097/
 http://xdan.ru/Working-with-files-in-JavaScript-Part-1-The-Basics.html
 http://html5demos.com/file-api
-
+3) edit [todo] in scrollPopup
 
 
 First tasks 
