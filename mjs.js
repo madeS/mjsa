@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.11.64
-	Last Mod: 2013-07-19 15:18
+	v0.5.12.65
+	Last Mod: 2013-09-01 10:41
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -16,7 +16,8 @@ var mjsa = new (function ($){
 		bodyAjax: true,  //true, // set false for old application, and for not support body ajax server side
 		bodyAjax_inselector: '#body_cont',  //body, 
 		bodyAjax_timeout: 5000,
-		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc. 
+		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
+		loadingImg: undefined, // '/pub/images/15.gif',
 		haSaveSelector: '.mjs_save', // history ajax save forms inputs selector
 		hintsContClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
 		hintClass: 'mjs_hint',
@@ -110,7 +111,7 @@ var mjsa = new (function ($){
 		$.ajax(innerOptions);
 	};
 	
-	// scroll to value in pixels
+	// scroll to value in pixels or to selector
 	this.scrollTo = function(value){
 		var item =  $("html,body");
 		if(typeof(value)==="number")  {
@@ -141,27 +142,28 @@ var mjsa = new (function ($){
 		if (selector === undefined) return {};
 		var ret = {};
 		$(selector).each(function(indx, element){
-			if ($(this).attr('name')) {
+			var name = $(this).attr('name') || $(this).attr('data-name');
+			if (name) {
 				if ($(this).is('input[type=checkbox]')){
-					ret[$(this).attr('name')] = ($(this).is(':checked'))?'1':'0';
+					ret[name] = ($(this).is(':checked'))?'1':'0';
 				} else if ($(this).is('input[type=radio]')) {
 					if ($(this).is(':checked')) {
-						ret[$(this).attr('name')] = $(this).val();
+						ret[name] = $(this).val();
 					} else {
-						if (ret[$(this).attr('name')] === undefined) {
-							ret[$(this).attr('name')] = '';
+						if (ret[name] === undefined) {
+							ret[name] = '';
 						}
 					}
 				} else if ($(this).is('[take=html]')) { // [deprecated]
-					ret[$(this).attr('name')] = $(this).html(); 
+					ret[name] = $(this).html(); 
 				} else if ($(this).is('.take_html, [data-take=html]')) {
-					ret[$(this).attr('name')] = $(this).html();
+					ret[name] = $(this).html();
 				} else if ($(this).hasClass('ckeditor')){
 					try {
-						ret[$(this).attr('name')] = CKEDITOR.instances[$(this).attr('id')].getData();
+						ret[name] = CKEDITOR.instances[$(this).attr('id')].getData();
 					} catch (ex) {console.log('CKEDITOR error - cant get data');}
 				} else {
-					ret[$(this).attr('name')] = $(this).val();
+					ret[name] = $(this).val();
 				}
 			}
 		}); return ret;
@@ -169,9 +171,10 @@ var mjsa = new (function ($){
 	this.loadCollectedParams = function(selector,collected){
 		var el;
 		for(var key in collected){
-			el = $(selector+'[name='+key+']');
+			el = $(selector+'[name='+key+'],'+selector+'[data-name='+key+']');
 			if ((el.attr('type') === 'text') || el.is('textarea')) el.val(collected[key]);
-			if (el.is('[take=html]')) el.html(collected[key]);
+			if (el.is('[take=html]')) el.html(collected[key]); // [deprecated]
+			if (el.is('.take_html, [data-take=html]')) el.html(collected[key]);
 		}
 	};
 	// easilyPostAjax
@@ -195,7 +198,9 @@ var mjsa = new (function ($){
 	};
 	// *** "HTML5 History" Body Ajax [BETA] ***
 	this._get_ajaxShadow = function(){
-		if($('.mjs_ajax_shadow').length === 0) $('body').append('<div class="mjs_ajax_shadow"></div>');
+		var inner = '';
+		if(mthis.def.loadingImg) inner += '<img class="mjs_loader" src="'+mthis.def.loadingImg+'">';
+		if($('.mjs_ajax_shadow').length === 0) $('body').append('<div class="mjs_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>');
 		return $('.mjs_ajax_shadow');
 	};
 	this.bodyAjax = function(link,opt){
@@ -636,10 +641,11 @@ var mjsa = new (function ($){
 	};
 	// enterclick activate
 	this.enterClickDefCallback = function(){
-		eval($(this).attr("onclickenter")); return false;
+		eval($(this).attr("data-onclickenter")); return false;
+		eval($(this).attr("onclickenter")); return false; // [deprecated]
 	};
 	this.onClickEnterInit = function(selector,opt){
-		$(document).on('keypress', selector, function(e) {
+		$(document).on('keypress', selector, function(e) { // TODO: keyup, or keydown
 			e = e || window.event;
 			if (opt && (opt.ctrl === true)){
 				if ((e.keyCode===13 || (e.keyCode===10)) && e.ctrlKey){
@@ -926,6 +932,15 @@ mjsa = (function ($){
 **************************************************************
 Version History
 
+v0.5.13.66 (current)
+
+
+v0.5.12.65 (2013-09-01)
+loadCollectedParams: .take_html, [data-take=html]
+onClickEnterInit: attr onclickenter -> data-onenterclick (deprecated)
+collectParams, loadCollectedParams: attr name + attr data-name
+_get_ajaxShadow add loader image
+
 v0.5.11.64 (2013-07-19)
 html: multiple html_replace_separator and etc. - need test
 easy fixes
@@ -933,7 +948,7 @@ easy fixes
 v0.5.10.63 (2013-07-17)
 fix: autocoplete (paste event)
 add bodyAjax_timeout for scrollPopup
-collect_params: .take_html, [data-take=html], ([take=html] - deprecated)
+collectParams: .take_html, [data-take=html], ([take=html] - deprecated)
 
 v0.5.9.62 (2013-07-11)
 fix: upload (http undefined error)
@@ -1169,19 +1184,14 @@ v0.1.0.1
 /////////////////////////////////////////////////////
 //// FUTURE /////////////////////////////////////////
 /////////////////////////////////////////////////////
-1) autoSearch[deprecated params] set new [edit] ++
-2) ajax upload
-http://learn.javascript.ru/xhr-onprogress
-http://habrahabr.ru/post/154097/
-http://xdan.ru/Working-with-files-in-JavaScript-Part-1-The-Basics.html
-http://html5demos.com/file-api
-3) edit [todo] in scrollPopup
+1) autocomplete( TODO: up, down, enter keys )
+2) upload ( TODO: abort, drag-and-drop)
+	http://learn.javascript.ru/xhr-onprogress
+	http://habrahabr.ru/post/154097/
+	http://xdan.ru/Working-with-files-in-JavaScript-Part-1-The-Basics.html
+	http://html5demos.com/file-api
+3) scrollPopup ( TODO: esc key - close)
 
-
-First tasks 
-
--errors with scrollpopup open url , 500 example
-
--print_hint .delay - use (page255) (release up)
+-print_hint .delay - use (page255)
 
 */
