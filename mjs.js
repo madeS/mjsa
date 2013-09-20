@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.12.65
-	Last Mod: 2013-09-01 10:41
+	v0.5.14.67
+	Last Mod: 2013-09-20 11:35
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -20,6 +20,7 @@ var mjsa = new (function ($){
 		loadingImg: undefined, // '/pub/images/15.gif',
 		haSaveSelector: '.mjs_save', // history ajax save forms inputs selector
 		hintsContClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
+		hintCall: undefined, // application alerts or other action
 		hintClass: 'mjs_hint',
 		hintSuccess: 'mjs_hint_success',
 		hintError: 'mjs_hint_error',
@@ -36,18 +37,18 @@ var mjsa = new (function ($){
 		$('body').append('<div class="'+mthis.def.hintsContClass+'"></div>');
 	};
 	this.print_hint = function(hint,className){ 
-		if (!mthis.def.hintsContClass) { alert('hint: '+hint); return false;}
-		if (!className)  className = mthis.def.hintSimple;
-		// ? rewrite with jQuery.delay
-		var ms = new Date(); var ms_time = ms.getTime();
-		if ($('.'+mthis.def.hintsContClass).length===0) mthis._createHintsContainer();
-		$('.'+mthis.def.hintsContClass).append('<div class="hint'+ms_time+'" style="display:none; clear:left;"><div class="'+mthis.def.hintClass+' '+className+'">'+hint+'</div>');
-		$('.'+mthis.def.hintsContClass).find('.hint'+ms_time).animate({height: "show"}, 300);
-		window.setTimeout(function(){
-			jQuery('.'+mthis.def.hintsContClass).find('.hint'+ms_time+'')
-				.animate({height: "hide"},{duration:300,done:function(){$(this).remove();}});
-		}, mthis.def.hintLiveMs);
-		
+		if (mthis.def.hintsContClass){
+			if (!className) className = mthis.def.hintSimple;
+			var ms = new Date(); var ms_time = ms.getTime();
+			if ($('.'+mthis.def.hintsContClass).length===0) mthis._createHintsContainer();
+			$('.'+mthis.def.hintsContClass).append('<div class="hint'+ms_time+'" style="display:none; clear:left;"><div class="'+mthis.def.hintClass+' '+className+'">'+hint+'</div></div>');
+			$('.'+mthis.def.hintsContClass).find('.hint'+ms_time).animate({height: "show"}, 300);
+			window.setTimeout(function(){
+				jQuery('.'+mthis.def.hintsContClass).find('.hint'+ms_time+'')
+					.animate({height: "hide"},{duration:300,done:function(){$(this).remove();}});
+			}, mthis.def.hintLiveMs);
+		}
+		mthis.def.hintCall && mthis.def.hintCall(hint);
 		return false;
 	};
 	
@@ -200,9 +201,10 @@ var mjsa = new (function ($){
 	this._get_ajaxShadow = function(){
 		var inner = '';
 		if(mthis.def.loadingImg) inner += '<img class="mjs_loader" src="'+mthis.def.loadingImg+'">';
-		if($('.mjs_ajax_shadow').length === 0) $('body').append('<div class="mjs_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>');
+		if($('.mjs_ajax_shadow').length === 0) $('body').append('<div class="mjs_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>'); // [TODO: remove inner, use rgba]
 		return $('.mjs_ajax_shadow');
 	};
+	this._bodyAjax_lastlink = '';
 	this.bodyAjax = function(link,opt){
 		if (!opt) opt = {};
 		var noajax = false; if (opt && opt.el) noajax = $(opt.el).attr('noajax');
@@ -226,11 +228,13 @@ var mjsa = new (function ($){
 			return false;
 		}
 		mthis._get_ajaxShadow().animate({opacity: "show"},150);
+		mthis._bodyAjax_lastlink = link;
 		mthis._ajax({
 			url: link, type: 'GET', data: {body_ajax: 'true'}, timeout:mthis.def.bodyAjax_timeout,
 			success:function(content){ 
 				var collected = mthis.collectParams(mthis.def.haSaveSelector);
 				var content_separated = undefined;
+				if (mthis._bodyAjax_lastlink !== link) return false;
 				if (content.indexOf('<ajaxbody_separator/>') !== -1) {
 					content_separated = content.split('<ajaxbody_separator/>');
 					if ((content_separated.length > 1)) { //  && (content.indexOf('<redirect_separator/>') === -1) [edit] something wrong with redirect 
@@ -433,7 +437,7 @@ var mjsa = new (function ($){
 		if (opt.input_file !== undefined){
 			$(opt.input_file).on('change',function(event){
 				var files_info = $(this)[0].files;
-				if (files_info === undefined) {
+				if (files_info === undefined || window.FormData === undefined) {
 					if (opt.unsupport) opt.unsupport();
 					else mthis.print_error('Browser is deprecated and not supported');
 				}
@@ -451,20 +455,16 @@ var mjsa = new (function ($){
 				if (opt.max_size_exception) opt.max_size_exception(files_info[i]);
 				else mthis.print_error('File '+ files_info[i].name + ' is too large. Max file size is '+ parseInt(opt.max_size /1024) + ' KB.');
 				continue;
-			}
-			if (opt.allow_ext && files_info[i].name){
-				if (!mthis.in_array(files_info[i].name.slice(files_info[i].name.lastIndexOf('.')+1).toLowerCase(), opt.allow_ext)){
+			} else if ((opt.allow_ext && files_info[i].name) 
+				&& (!mthis.inArray(files_info[i].name.slice(files_info[i].name.lastIndexOf('.')+1).toLowerCase(), opt.allow_ext))){
 					if (opt.allow_ext_exception) opt.allow_ext_exception(files_info[i]);
 					else mthis.print_error('File '+ files_info[i].name + ' is not allowed');
-					continue;
-				}
-			}
-			if (opt.max_files && files.length >= opt.max_files){
+			} else if (opt.max_files && files.length >= opt.max_files){
 				if (opt.max_files_exception) opt.max_files_exception(files_info[i]);
 				else mthis.print_error('File '+ files_info[i].name + ' is not to be upload. Max files to upload is '+opt.max_files+' .' );
-				continue;
+			} else {
+				files.push(files_info[i]);
 			}
-			files.push(files_info[i]);
 		}
 		var http = new XMLHttpRequest();
 		if (http.upload && http.upload.addEventListener) {
@@ -640,23 +640,17 @@ var mjsa = new (function ($){
 		return false;
 	};
 	// enterclick activate
-	this.enterClickDefCallback = function(){
+	this._enterClickDefCall = function(){
 		eval($(this).attr("data-onclickenter")); return false;
 		eval($(this).attr("onclickenter")); return false; // [deprecated]
 	};
 	this.onClickEnterInit = function(selector,opt){
 		$(document).on('keypress', selector, function(e) { // TODO: keyup, or keydown
 			e = e || window.event;
-			if (opt && (opt.ctrl === true)){
-				if ((e.keyCode===13 || (e.keyCode===10)) && e.ctrlKey){
-					if (opt && opt.callback) opt.callback.call(this);
-					else mthis.enterClickDefCallback.call(this);
-				}
-				return true;
-			}
-			if (e.keyCode===13){
+			if (e.keyCode===13 || e.keyCode===10){
+				if (opt && (opt.ctrl === true) && !e.ctrlKey) return true;
 				if (opt && opt.callback) opt.callback.call(this);
-				else mthis.enterClickDefCallback.call(this);
+				else mthis._enterClickDefCall.call(this);
 			}
 			return true;
 		});
@@ -665,7 +659,7 @@ var mjsa = new (function ($){
 	this.getByteLength = function(str){ 
 		return encodeURIComponent(str).replace(/%../g, 'x').length;
 	};
-	this.in_array = function(needle, haystack){
+	this.inArray = function(needle, haystack){
 		var found = false, key;
 		for (key in haystack) {
 			if (haystack[key] === needle){ found = true; break; }
@@ -932,8 +926,17 @@ mjsa = (function ($){
 **************************************************************
 Version History
 
-v0.5.13.66 (current)
+v0.5.14.67 (2013-09-20)
+visual fix: _upload
+include hint.css by https://github.com/chinchang/hint.css with easy fixes
+in_array -> inArray
+add def: hintCall
+edit func: onClickEnterInit, enterClickDefCallback -> _enterClickDefCall
+hotfix: upload unsupport FormData
 
+v0.5.13.66 (2013-09-02)
+bodyAjax: fix async links
+fix: hints
 
 v0.5.12.65 (2013-09-01)
 loadCollectedParams: .take_html, [data-take=html]
