@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.14.67
-	Last Mod: 2013-09-20 11:35
+	v0.5.16.70
+	Last Mod: 2013-10-08 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -19,6 +19,12 @@ var mjsa = new (function ($){
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
 		loadingImg: undefined, // '/pub/images/15.gif',
 		haSaveSelector: '.mjs_save', // history ajax save forms inputs selector
+		mf: '.m_form', // mForm Selector
+		mfDisable: 'disable', // mForm disable class when btn pressed
+		mfIn: '.in', // mForm inner selector for collect params
+		mfError: '.in_error', // mForm error selector to set error text
+		mfInError: 'm_incorrect', // mForm rror class for error input
+		mfService: '#m_service', // mForm for test return value
 		hintsContClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
 		hintCall: undefined, // application alerts or other action
 		hintClass: 'mjs_hint',
@@ -105,7 +111,10 @@ var mjsa = new (function ($){
 				} else {
 					mthis._ajax_recurs = 3;
 					if (options.error !== undefined ) options.error(jqXHR, textStatus, errorThrown);
-					else mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+					else {
+						if (!jqXHR.status && !jqXHR.statusText) jqXHR.statusText = 'Connection error';
+						mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+					}
 				}
 			}
 		});
@@ -146,7 +155,9 @@ var mjsa = new (function ($){
 			var name = $(this).attr('name') || $(this).attr('data-name');
 			if (name) {
 				if ($(this).is('input[type=checkbox]')){
-					ret[name] = ($(this).is(':checked'))?'1':'0';
+					if ($(this).attr('data-value')){
+						if($(this).is(':checked')) ret[name] = ((ret[name])?ret[name]+';':'')+$(this).attr('data-value');
+					} else ret[name] = ($(this).is(':checked'))?'1':'0';
 				} else if ($(this).is('input[type=radio]')) {
 					if ($(this).is(':checked')) {
 						ret[name] = $(this).val();
@@ -196,6 +207,33 @@ var mjsa = new (function ($){
 			}
 		});
 		return false;
+	};
+	this.mFormSubmit = function(el,link,opt){
+		if (!opt) opt = {};
+		if (!opt.mf) opt.mf = mthis.def.mf;
+		if (!opt.mfDisable) opt.mfDisable = mthis.def.mfDisable;
+		if (!opt.mfIn) opt.mfIn = mthis.def.mfIn;
+		if (!opt.mfError) opt.mfError = mthis.def.mfError;
+		if (!opt.mfInError) opt.mfInError = mthis.def.mfInError;
+		if (!opt.mfService) opt.mfService = mthis.def.mfService;
+		if ($(el).hasClass(opt.mfDisable)) return false; else $(el).addClass(opt.mfDisable);
+		$(el).parents(opt.mf).find(opt.mfError).html('');
+		var paramSelector = $(el).parents(opt.mf).find(opt.mfIn).removeClass(opt.mfInError);
+		mthis.easilyPostAjax(link, opt.mfService, {}, paramSelector,
+			function(response){
+				if (opt.callback && !opt.callback(response,el)) return false;
+				var incorrect = mthis.grabResponseTag(response,'<incorrect_separator/>');
+				if (incorrect){
+					$(el).parents(opt.mf).find('[name='+incorrect+']').addClass(opt.mfInError);
+				}
+				var error_msg = mthis.grabResponseTag(response,'<error_separator/>');
+				if (error_msg){
+					$(el).parents(opt.mf).find(opt.mfError).html(error_msg);
+				}
+				$(el).removeClass(opt.mfDisable);
+				return false;
+			}, undefined);
+		return false;		
 	};
 	// *** "HTML5 History" Body Ajax [BETA] ***
 	this._get_ajaxShadow = function(){
@@ -925,6 +963,15 @@ mjsa = (function ($){
 /* 
 **************************************************************
 Version History
+
+v0.5.16.70 (2013-10-08)
+collectParams: data-value in checkbox
+
+v0.5.15.69 (2013-10-04)
+_ajax: connection error hint;
+
+v0.5.15.68 (2013-09-27)
+add func: mFormSubmit // replaced coreFormSubmit from app.js
 
 v0.5.14.67 (2013-09-20)
 visual fix: _upload
