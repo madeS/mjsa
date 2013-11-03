@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.16.70
-	Last Mod: 2013-10-08 20:00
+	v0.5.18.72
+	Last Mod: 2013-10-28 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -83,7 +83,7 @@ var mjsa = new (function ($){
 	this.jSelected = undefined;
 	this.s = function(selector){mthis.jSelected = $(selector); return mthis;};
 	
-	// *** CircleTimer - easy stand alone timer ***
+	// *** CircleTimer - easy stand alone timer *** [deprecated]
 	this._circleTimerHandler = undefined;
 	this._circleTimerCallback = function(){};
 	this.circleTimer = function(callback,timer){
@@ -92,6 +92,21 @@ var mjsa = new (function ($){
 		}
 		mthis._circleTimerCallback = callback;
 		setInterval(mthis._circleTimerCallback, timer);
+	};
+	
+	// *** intervalStack module - easy stand alone interval timer
+	this._intervalStackHandlers = [];
+	this.intervalStackAdd = function(func,timer){
+		return mthis._intervalStackHandlers.push(setInterval(func,timer)) - 1;
+	};
+	this.intervalStackClear = function(index){
+		var count = 1;
+		if (!index){
+			index = 0; count = mthis._intervalStackHandlers.length;
+		}
+		var arr = mthis._intervalStackHandlers.splice(index,count);
+		for(var i in arr) clearInterval(arr[i]);
+		return false;
 	};
 
 	// *** inner x3 Ajax ***
@@ -122,13 +137,13 @@ var mjsa = new (function ($){
 	};
 	
 	// scroll to value in pixels or to selector
-	this.scrollTo = function(value){
+	this.scrollTo = function(value,timer){
 		var item =  $("html,body");
 		if(typeof(value)==="number")  {
-			item.animate({scrollTop: value});
+			item.animate({scrollTop: value},timer);
 		} else {
 			var sct = $(value).offset().top;
-			item.animate({scrollTop: sct});
+			item.animate({scrollTop: sct},timer);
 		}
 		return false;
 	};
@@ -221,6 +236,7 @@ var mjsa = new (function ($){
 		var paramSelector = $(el).parents(opt.mf).find(opt.mfIn).removeClass(opt.mfInError);
 		mthis.easilyPostAjax(link, opt.mfService, {}, paramSelector,
 			function(response){
+				$(el).removeClass(opt.mfDisable);
 				if (opt.callback && !opt.callback(response,el)) return false;
 				var incorrect = mthis.grabResponseTag(response,'<incorrect_separator/>');
 				if (incorrect){
@@ -230,7 +246,6 @@ var mjsa = new (function ($){
 				if (error_msg){
 					$(el).parents(opt.mf).find(opt.mfError).html(error_msg);
 				}
-				$(el).removeClass(opt.mfDisable);
 				return false;
 			}, undefined);
 		return false;		
@@ -631,6 +646,8 @@ var mjsa = new (function ($){
 	}
 	*/
 	//[test][beta]
+	// [TODO]now realised like live.. set by options one event
+	// [TODO]up down enter esc keys
 	this.autocomplete = function(input_selector,opt){
 		if (!opt) opt = {};
 		if (!opt.to_selector) opt.to_selector='#test';
@@ -670,7 +687,7 @@ var mjsa = new (function ($){
 					} catch(ex) {
 						console.log('search error: response is ="'+data+'"');
 					}
-					hndlr = false;
+					hndlr = false; //?
 				});
 			}, 400);
 			return true;
@@ -964,6 +981,13 @@ mjsa = (function ($){
 **************************************************************
 Version History
 
+v0.5.18.72 (2013-10-28)
+mForm callback disable btn fix
+
+v0.5.17.71 (2013-10-22)
+add intervalStack module
+scrollTo add time
+
 v0.5.16.70 (2013-10-08)
 collectParams: data-value in checkbox
 
@@ -1241,6 +1265,10 @@ v0.1.0.1
 	http://xdan.ru/Working-with-files-in-JavaScript-Part-1-The-Basics.html
 	http://html5demos.com/file-api
 3) scrollPopup ( TODO: esc key - close)
+4) Phone input formatter
+5) document, selector - live event like option (autocomplete, onenterclick)
+6) selected поулчение выделеного текста
+
 
 -print_hint .delay - use (page255)
 
