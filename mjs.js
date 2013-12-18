@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.5.18.72
-	Last Mod: 2013-10-28 20:00
+	v0.6.8.80
+	Last Mod: 2013-12-18 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -12,49 +12,59 @@ var mjsa = new (function ($){
 	this.wait_message = undefined; // in easilyAjax - not recommended
 	this.def = {
 		testing: false,
-		appMeetVersion: 550, // old application not supported
+		appMeetVersion: 600, // old application not supported
+		service: '#m_service', // class for executing server JS
 		bodyAjax: true,  //true, // set false for old application, and for not support body ajax server side
 		bodyAjax_inselector: '#body_cont',  //body, 
 		bodyAjax_timeout: 5000,
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
 		loadingImg: undefined, // '/pub/images/15.gif',
 		haSaveSelector: '.mjs_save', // history ajax save forms inputs selector
-		mf: '.m_form', // mForm Selector
-		mfDisable: 'disable', // mForm disable class when btn pressed
-		mfIn: '.in', // mForm inner selector for collect params
-		mfError: '.in_error', // mForm error selector to set error text
-		mfInError: 'm_incorrect', // mForm rror class for error input
-		mfService: '#m_service', // mForm for test return value
-		hintsContClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
-		hintCall: undefined, // application alerts or other action
-		hintClass: 'mjs_hint',
-		hintSuccess: 'mjs_hint_success',
-		hintError: 'mjs_hint_error',
-		hintSimple: 'mjs_hint_simple',
-		hintLiveMs: 10000,
-		htmlInterception: undefined
+		mform: {
+			selector: '.m_form', // mForm Selector
+			disableClass: 'disable', // mForm disable class when btn pressed
+			inSelector: '.in', // mForm inner selector for collect params
+			errorSelector: '.in_error', // mForm error selector to set error text
+			incorrectClass: 'm_incorrect', // mForm rror class for error input
+			service: '#m_service', // mForm class for executing server JS = def.service
+			errorSeparator:'<error_separator/>',
+			incorrectSeparator:'<incorrect_separator/>'
+		},
+		hints: {
+			containerClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
+			call: undefined, // application alerts or other action
+			mainClass: 'mjs_hint',
+			successClass: 'mjs_hint_success',
+			errorClass: 'mjs_hint_error',
+			simpleClass: 'mjs_hint_simple',
+			hintLiveMs: 10000
+		},
+		htmlInterception: undefined,
+		test: 'test'
 	};
+	
+	this.copy = function(obj){ return JSON.parse(JSON.stringify(obj)); };
 	
 	//  *** error message ***
 	this.print_error = function(error_msg){
-		return mthis.print_hint(error_msg,mthis.def.hintError);
+		return mthis.print_hint(error_msg,mthis.def.hints.errorClass);
 	};
 	this._createHintsContainer = function(){ 
-		$('body').append('<div class="'+mthis.def.hintsContClass+'"></div>');
+		$('body').append('<div class="'+mthis.def.hints.containerClass+'"></div>');
 	};
-	this.print_hint = function(hint,className){ 
-		if (mthis.def.hintsContClass){
-			if (!className) className = mthis.def.hintSimple;
+	this.print_hint = function(hint,className){
+		if (mthis.def.hints.containerClass){
+			if (!className) className = mthis.def.hints.simpleClass;
 			var ms = new Date(); var ms_time = ms.getTime();
-			if ($('.'+mthis.def.hintsContClass).length===0) mthis._createHintsContainer();
-			$('.'+mthis.def.hintsContClass).append('<div class="hint'+ms_time+'" style="display:none; clear:left;"><div class="'+mthis.def.hintClass+' '+className+'">'+hint+'</div></div>');
-			$('.'+mthis.def.hintsContClass).find('.hint'+ms_time).animate({height: "show"}, 300);
+			if ($('.'+mthis.def.hints.containerClass).length===0) mthis._createHintsContainer();
+			$('.'+mthis.def.hints.containerClass).append('<div class="hint'+ms_time+'" style="display:none; clear:left;"><div class="'+mthis.def.hints.mainClass+' '+className+'">'+hint+'</div></div>');
+			$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time).animate({height: "show"}, 300);
 			window.setTimeout(function(){
-				jQuery('.'+mthis.def.hintsContClass).find('.hint'+ms_time+'')
+				jQuery('.'+mthis.def.hints.containerClass).find('.hint'+ms_time+'')
 					.animate({height: "hide"},{duration:300,done:function(){$(this).remove();}});
-			}, mthis.def.hintLiveMs);
+			}, mthis.def.hints.hintLiveMs);
 		}
-		mthis.def.hintCall && mthis.def.hintCall(hint);
+		mthis.def.hints.call && mthis.def.hints.call(hint);
 		return false;
 	};
 	
@@ -83,16 +93,6 @@ var mjsa = new (function ($){
 	this.jSelected = undefined;
 	this.s = function(selector){mthis.jSelected = $(selector); return mthis;};
 	
-	// *** CircleTimer - easy stand alone timer *** [deprecated]
-	this._circleTimerHandler = undefined;
-	this._circleTimerCallback = function(){};
-	this.circleTimer = function(callback,timer){
-		if(mthis._circleTimerHandler){
-			clearInterval(mthis._circleTimerHandler);
-		}
-		mthis._circleTimerCallback = callback;
-		setInterval(mthis._circleTimerCallback, timer);
-	};
 	
 	// *** intervalStack module - easy stand alone interval timer
 	this._intervalStackHandlers = [];
@@ -111,9 +111,12 @@ var mjsa = new (function ($){
 
 	// *** inner x3 Ajax ***
 	this._ajax_recurs = 3;
+	this._defAjaxError = function(jqXHR, textStatus, errorThrown){
+		if (jqXHR.status === 0 && jqXHR.statusText === 'error') jqXHR.statusText = 'Connection error';
+		mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+	}
 	this._ajax = function(options){
-		var newOptions = JSON.parse(JSON.stringify(options));
-		var innerOptions = $.extend(newOptions,{
+		var innerOptions = $.extend(mthis.copy(options),{
 			success: function(html, textStatus, XMLHttpRequest){
 				mthis._ajax_recurs = 3;
 				if (options.success !== undefined) options.success(html, textStatus, XMLHttpRequest);
@@ -126,10 +129,7 @@ var mjsa = new (function ($){
 				} else {
 					mthis._ajax_recurs = 3;
 					if (options.error !== undefined ) options.error(jqXHR, textStatus, errorThrown);
-					else {
-						if (!jqXHR.status && !jqXHR.statusText) jqXHR.statusText = 'Connection error';
-						mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
-					}
+					else { mthis._defAjaxError(jqXHR, textStatus, errorThrown); }
 				}
 			}
 		});
@@ -138,6 +138,7 @@ var mjsa = new (function ($){
 	
 	// scroll to value in pixels or to selector
 	this.scrollTo = function(value,timer){
+		if(timer === undefined) timer = 500;
 		var item =  $("html,body");
 		if(typeof(value)==="number")  {
 			item.animate({scrollTop: value},timer);
@@ -189,6 +190,10 @@ var mjsa = new (function ($){
 					try {
 						ret[name] = CKEDITOR.instances[$(this).attr('id')].getData();
 					} catch (ex) {console.log('CKEDITOR error - cant get data');}
+				} else if ($(this).hasClass('tinymce')){
+					try {
+						ret[name] = tinyMCE.editors[$(this).attr('id')].getContent();
+					} catch (ex) {console.log('TinyMCE error - cant get data');}	
 				} else {
 					ret[name] = $(this).val();
 				}
@@ -205,7 +210,8 @@ var mjsa = new (function ($){
 		}
 	};
 	// easilyPostAjax
-	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, add_callback, add_precall){
+	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, add_callback, add_precall, opt){
+		if (!opt) opt = {};
 		if (post_obj === undefined) post_obj = {};
 		var data = $.extend(post_obj,mthis.collectParams(post_selector));
 		if (add_precall !== undefined) { 
@@ -219,35 +225,36 @@ var mjsa = new (function ($){
 			success:function(data) {
 				if (insert_selector !== undefined) mthis.html(insert_selector,data);
 				if (add_callback !== undefined) add_callback(data);
-			}
+			},
+			error: opt.error
 		});
 		return false;
 	};
-	this.mFormSubmit = function(el,link,opt){
-		if (!opt) opt = {};
-		if (!opt.mf) opt.mf = mthis.def.mf;
-		if (!opt.mfDisable) opt.mfDisable = mthis.def.mfDisable;
-		if (!opt.mfIn) opt.mfIn = mthis.def.mfIn;
-		if (!opt.mfError) opt.mfError = mthis.def.mfError;
-		if (!opt.mfInError) opt.mfInError = mthis.def.mfInError;
-		if (!opt.mfService) opt.mfService = mthis.def.mfService;
-		if ($(el).hasClass(opt.mfDisable)) return false; else $(el).addClass(opt.mfDisable);
-		$(el).parents(opt.mf).find(opt.mfError).html('');
-		var paramSelector = $(el).parents(opt.mf).find(opt.mfIn).removeClass(opt.mfInError);
-		mthis.easilyPostAjax(link, opt.mfService, {}, paramSelector,
+	
+	this.mFormSubmit = function(el,link,options){
+		var opt = $.extend(mthis.copy(mthis.def.mform), options || {});
+		if ($(el).hasClass(opt.disableClass)) return false; else $(el).addClass(opt.disableClass);
+		$(el).parents(opt.selector).find(opt.errorSelector).html('');
+		var paramSelector = $(el).parents(opt.selector).find(opt.inSelector).removeClass(opt.incorrectClass);
+		mthis.easilyPostAjax(link, opt.service, {}, paramSelector,
 			function(response){
-				$(el).removeClass(opt.mfDisable);
+				$(el).removeClass(opt.disableClass);
 				if (opt.callback && !opt.callback(response,el)) return false;
-				var incorrect = mthis.grabResponseTag(response,'<incorrect_separator/>');
+				var incorrect = mthis.grabResponseTag(response,opt.incorrectSeparator);
 				if (incorrect){
-					$(el).parents(opt.mf).find('[name='+incorrect+']').addClass(opt.mfInError);
+					$(el).parents(opt.selector).find('[name='+incorrect+']').addClass(opt.incorrectClass);
 				}
-				var error_msg = mthis.grabResponseTag(response,'<error_separator/>');
+				var error_msg = mthis.grabResponseTag(response,opt.errorSeparator);
 				if (error_msg){
-					$(el).parents(opt.mf).find(opt.mfError).html(error_msg);
+					$(el).parents(opt.selector).find(opt.errorSelector).html(error_msg);
 				}
 				return false;
-			}, undefined);
+			}, undefined,{
+				error: function(jqXHR, textStatus, errorThrown){
+					$(el).removeClass(opt.disableClass);
+					mthis._defAjaxError(jqXHR, textStatus, errorThrown);
+				}
+			});
 		return false;		
 	};
 	// *** "HTML5 History" Body Ajax [BETA] ***
@@ -313,7 +320,7 @@ var mjsa = new (function ($){
 			},
 			error:function(jqXHR, textStatus, errorThrown){
 				mthis._get_ajaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
-				mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+				mthis._defAjaxError(jqXHR, textStatus, errorThrown);
 			}
 		});
 	};
@@ -371,16 +378,13 @@ var mjsa = new (function ($){
 			needHtml = true,
 			content_separated = undefined,
 			par = undefined;
-		if (mthis.def.appMeetVersion >= 300) {
-			if (content.indexOf('<mjs_separator/>') === -1) { // quick end
-				jSel.html(content);
-				return jSel;
-			} else {
-				if (mthis.def.htmlInterception){
-					if (!mthis.def.htmlInterception(content)) return jSel; // interception (like <redirect_separator/>/auth)
-				}
-			}
-		} 
+		if (mthis.def.htmlInterception){
+			if (!mthis.def.htmlInterception(content)) return jSel; // interception (like <redirect_separator/>/auth)
+		}
+		if (content.indexOf('<mjs_separator/>') === -1) { // quick end
+			jSel.html(content);
+			return jSel;
+		}
 		if (content.indexOf('<redirect_separator/>') !== -1) {
 			content_separated = content.split('<redirect_separator/>');
 			if (content_separated.length > 1) {
@@ -396,7 +400,7 @@ var mjsa = new (function ($){
 		if (content.indexOf('<success_separator/>') !== -1) {
 			content_separated = content.split('<success_separator/>');
 			if (content_separated.length > 1) {
-				mthis.print_hint(content_separated[1],mthis.def.hintSuccess);
+				mthis.print_hint(content_separated[1],mthis.def.hints.successClass);
 			}
 		}
 		if (content.indexOf('<alert_separator/>') !== -1) {
@@ -477,6 +481,7 @@ var mjsa = new (function ($){
 		max_size: 823000,
 		max_size_exception: function(file){},
 		max_files: 15,
+		one_file_simple: false,
 		max_files_exception: function(file){},
 		allow_ext: ['jpg','jpeg','png','gif'],
 		allow_ext_exception: function(file){}
@@ -496,9 +501,10 @@ var mjsa = new (function ($){
 				}
 				if (!files_info.length) return false;
 				http = mthis._upload(files_info,opt);
+				// load HTTP handler to selector data;
 			});
 		}
-		return http;
+		return http; // note: return null
 	};
 	this._upload = function(files_info,opt){
 		if (opt.bafore_call && opt.bafore_call(files_info) === false) return false;
@@ -549,7 +555,7 @@ var mjsa = new (function ($){
 		}
 		if (!opt.name) opt.name = 'thefiles';
 		for (var i = 0; i < files.length; i++) {
-			form.append(opt.name+'[]', files[i]);
+			form.append(opt.name+((opt.one_file_simple)?'':'[]'), files[i]);
 		}
 		if (opt.pre_call) opt.pre_call(files);
 		http.open('POST', opt.url);
@@ -622,17 +628,100 @@ var mjsa = new (function ($){
 		return false;
 	};
 	
-
 	
-	// TODO: up key 
-	// TODO: down key
-	// TODO: enter key
+	/* selected text on window */ 
+	this._getSelection = function(w){
+		var ie = false, si = undefined;
+		if ( w.getSelection ) { 
+			si = w.getSelection(); 
+		} else if ( w.document.getSelection ) { 
+			si = w.document.getSelection(); 
+		} else if ( w.document.selection ) { 
+			ie = true;
+			si = w.document.selection.createRange(); 
+		} 
+		if(!ie){
+			var range = (si.rangeCount)?si.getRangeAt(0):w.document.createRange();
+			var d = w.document.createElement('div'); 
+			d.appendChild(range.cloneContents());
+			return {text:si.toString(), html:d.innerHTML, range:range,si:si };
+		} else {
+			return {text:si.text, html:si.htmlText, ieRange:si};
+		}		
+	};
+	this._toSelection = function(w, sel, text){
+		if(sel.range){
+			var root = sel.range.commonAncestorContainer;
+			sel.range.deleteContents();
+			var d = w.document.createElement('div'); d.innerHTML = text; 
+			var docFragment = w.document.createDocumentFragment();
+			while (d.firstChild) { 
+				docFragment.appendChild(d.firstChild) ;
+			}; 
+			sel.range.collapse(false); 
+			sel.range.insertNode(docFragment);
+			return root;
+		} else if(sel.ieRange){
+			sel.selectedText.pasteHTML(text); return undefined;
+		} else {
+			console.log('incorrect selection'); return false;
+		}
+		
+	};
+	
+	this.selected = function(opt){
+		if (!opt) opt = {};
+		var w = opt.window || window;
+		
+		var sel = mthis._getSelection(w);
+		
+		if (opt.replace){
+			var root = mthis._toSelection(w,sel,opt.replace(sel));
+			//if (root && !opt.nocorrect) $(root).html($(root).html().replace(/<[^\/>][^>]*>[^<]<\/[^>]+>/gim, ''));
+			if (root && !opt.noEmptyCorrect) $(root).parent().parent().find('p,b,i,u,strong,em').filter('*:empty').remove();
+			if (root && !opt.noInCorrect) {
+				$(root).parent().parent().find('b b,strong strong,i i,em em,u u').each(function(){
+					var $parent = $(this).parent(); $parent.html($parent.text());
+				});
+			}
+			sel = mthis._getSelection(w);
+		}
+		
+		return sel;
+	};
+	this.getTimezone = function(){ // Thanks http://paperplane.su/php-timezone/
+		var now = new Date(); 
+		var timezone = { offset: 0, dst: 0};
+		timezone.offset = now.getTimezoneOffset();
+		var d1 = new Date(); var d2 = new Date();
+		// Первую дату установим на 1 января текущего года
+		 d1.setDate(1); d1.setMonth(1);
+		// Вторую дату установим на 1 июля текущего года
+		 d2.setDate(1); d2.setMonth(7);
+		// Если смещение часовых поясов совпадают, то поправка на летнее время отсутствует
+		if(parseInt(d1.getTimezoneOffset()) == parseInt(d2.getTimezoneOffset())) {
+			 timezone.dst = 0;
+		} else { // если поправка на летнее время существует, то проверим активно ли оно в данный момент
+			 // Выясним в каком полушарии мы находимся в северном или южном
+			 // Разница будет положительной для северного и отрицательной для южного
+			 var hemisphere = parseInt(d1.getTimezoneOffset()) - parseInt(d2.getTimezoneOffset());
+			 if((hemisphere > 0 && parseInt(d1.getTimezoneOffset()) == parseInt(now.getTimezoneOffset())) 
+				|| (hemisphere < 0 && parseInt(d2.getTimezoneOffset()) == parseInt(now.getTimezoneOffset()))) { 
+				 timezone.dst = 0;
+			 } else { 
+				 timezone.dst = 1;
+			 }
+		}
+		return timezone;
+	};
+
 	/* 
 	opt = {
+		once: false, 
 		to_selector: '#to',
 		url: '/ajax/autocomlete'
-		param: {}, // aditional POST params as default
-		collect: '.ac_param', // collect values to param
+		param: {}, 
+		collect: '.ac_param', 
 		minchars: 3
 		call_before: function(param,el,keyup_event){
 			if (param.query.length < 3) {clear(); return false;}
@@ -645,15 +734,54 @@ var mjsa = new (function ($){
 		call_after: function(param,response)
 	}
 	*/
-	//[test][beta]
-	// [TODO]now realised like live.. set by options one event
-	// [TODO]up down enter esc keys
-	this.autocomplete = function(input_selector,opt){
-		if (!opt) opt = {};
-		if (!opt.to_selector) opt.to_selector='#test';
+	//[beta]
+	this.autocomplete = function(input_selector,options){
+		var defOpt = {
+			to_selector: '#test',
+			itemSelector: '.item',
+			selectedClass: 'selected',
+			url: '/default/autocomplete',
+			param: undefined,// aditional POST params as default
+			collect: undefined, // collect values to param
+			minchars: 2,
+			once: undefined, // init for one time only
+		};
+		var opt = $.extend(mthis.copy(defOpt), options || {});
+		
 		var hndlr = null;
 		var last_query = '';
-		$(document).on('keyup paste', input_selector, function(e){
+		var jDoc = document, jSel = input_selector;
+		if (opt && opt.once) { jDoc = input_selector; jSel = undefined;}
+		$(jDoc).on('keydown', jSel, function(e){
+			// Interception up, down,enter, escape keys
+			if (e.keyCode && (e.keyCode===38 || e.keyCode===40 || e.keyCode===13 || e.keyCode===27)){ 
+				if (e.keyCode===38){ // up key: select previos item
+					var $selected = $(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass);
+					var $selected = (($selected.prev(opt.itemSelector).length)?$selected.prev(opt.itemSelector):$selected.parent().children(opt.itemSelector+':last')).addClass(opt.selectedClass);
+				}
+				if (e.keyCode===40){ // down key: select next item
+					var $selected = $(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass);
+					var $selected = (($selected.next(opt.itemSelector).length)?$selected.next(opt.itemSelector):$selected.parent().children(opt.itemSelector+':first')).addClass(opt.selectedClass);
+				}
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				return false;
+			}
+		});
+		$(jDoc).on('keyup paste', jSel, function(e){
+			// Interception up, down,enter, escape keys
+			if (e.keyCode && (e.keyCode===38 || e.keyCode===40 || e.keyCode===13 || e.keyCode===27)){
+				if (e.keyCode===13){ // enter key: select item, event click, and hide autocomplete
+					$(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass).click();
+					$(opt.to_selector).html('').hide();
+				}
+				if (e.keyCode===27){ // escape key, hide autocompleate
+					$(opt.to_selector).html('').hide();
+				}
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				return false;
+			}
 			if (!opt.param) opt.param = {};
 			if (opt.url === undefined) opt.url = '';
 			var self = this;
@@ -694,13 +822,17 @@ var mjsa = new (function ($){
 		});
 		return false;
 	};
+
+	
 	// enterclick activate
 	this._enterClickDefCall = function(){
 		eval($(this).attr("data-onclickenter")); return false;
 		eval($(this).attr("onclickenter")); return false; // [deprecated]
 	};
 	this.onClickEnterInit = function(selector,opt){
-		$(document).on('keypress', selector, function(e) { // TODO: keyup, or keydown
+		var jDoc = document, jSel = selector;
+		if (opt && opt.once) { jDoc = selector; jSel = undefined;}
+		$(jDoc).on('keypress', jSel, function(e) { // TODO: keyup, or keydown
 			e = e || window.event;
 			if (e.keyCode===13 || e.keyCode===10){
 				if (opt && (opt.ctrl === true) && !e.ctrlKey) return true;
@@ -749,22 +881,21 @@ mjsa = (function ($){
 			for(var key in m.openedSelectors){
 				if (m.openedSelectors[key]) m.close(key);
 			}
-		}
+		};
+		m.getOpened = function(){for(var key in m.openedSelectors){if (m.openedSelectors[key]) return key;}};
 		// [TODO:]
 		// 1)add support escape button to close opened popups
-		// 2)add save all opened popups
-		// 3)add functions closing all popups
 		m._createPopup = function(options){
 			// style
 			var str_html = '<style>';
-			str_html += '	.popup_scroll_shadow{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6; z-index: '+options.zindex+';}';
-			str_html += '	.popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options.zindex+1)+';}';
-			str_html += '	.popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options.zindex+1)+'; padding: 0 0 20px; min-height:100px; }';
-			str_html += '	.popup_scroll_body{ position: relative;  padding: 13px '+options.padding_hor+'px 15px; line-height: normal; background:#fff; }';
+			str_html += options.selector+' .popup_scroll_shadow{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6; z-index: '+options.zindex+';}';
+			str_html += options.selector+' .popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options.zindex+1)+';}';
+			str_html += options.selector+' .popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options.zindex+1)+'; padding: 0 0 20px; min-height:100px; }';
+			str_html += options.selector+' .popup_scroll_body{ position: relative;  padding: 13px '+options.padding_hor+'px 15px; line-height: normal; background:#fff; }';
 			if (options.close_btn_style !== undefined) {
-				str_html += '	.close_popup_scroll{ '+options.close_btn_style+' }';
+				str_html += options.selector+' .close_popup_scroll{ '+options.close_btn_style+' }';
 			}
-			str_html += '	.popup_scroll_content{ }';
+			str_html += options.selector+' .popup_scroll_content{ }';
 			str_html += '</style>';
 			// shadow
 			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
@@ -796,7 +927,7 @@ mjsa = (function ($){
 			var con_width1 = parseInt(con_width);
 			var body_width1 = parseInt(body_width);
 			var left_p1 = (body_width1 - con_width1)/2;
-			$(options.mainContainer).css('position', 'fixed');
+			$(options.mainContainer).css('position', 'fixed').css('width','100%');
 			$(options.mainContainer).css('top', '-'+nowpos+'px');
 			$(options.mainContainer).css('left', ''+left_p1+'px');
 			$(options.selector+' .popup_scroll_shadow').show();
@@ -837,7 +968,7 @@ mjsa = (function ($){
 		m.init = function(selector, options){
 			this._createParent(selector);
 			options.selector = selector;
-			var opt = $.extend(defOptions, options);
+			var opt = $.extend(mthis.copy(defOptions), options);
 			$(selector).data('options',opt);
 			this._createPopup(opt);
 			return false;
@@ -863,7 +994,7 @@ mjsa = (function ($){
 					},
 					error:function(jqXHR, textStatus, errorThrown){
 						thethis.close(selector);
-						mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+						mjsa._defAjaxError(jqXHR, textStatus, errorThrown);
 					}
 				});
 			} else {
@@ -905,71 +1036,14 @@ mjsa = (function ($){
 mjsa = (function ($){
 	var mthis = this;
 
-	if (mthis.def.appMeetVersion < 550) {
+	if (mthis.def.appMeetVersion < 600) {
 		//[deprecated functions]
 
-		// html autocomliate [need ext]
-		// autoSearch('#someInput',{addit:'secondAutocompleae'},function(query,input_selector){
-		//				if (query === '') return false; // interception request
-		//				else return query; // returning query important
-		//			}, function(query,response){ alert('success response');})
-		// input_selector attrs[m_auto_to='insert result in',]
-		//[deprecated]
-		this.autoSearch = function(input_selector,param,before_call,after_call,options){
-			if (!options) options = {};
-			var m_auto_interval = false;
-			var m_auto_last_query = '';
-			$(document).on('keyup', input_selector, function(){
-				param['query'] =$(this).val();
-				var to_selector = options.to_selector || $(this).attr('m_auto_to');
-				if (before_call !== undefined) {
-					param['query'] = before_call(param['query'],input_selector); // $.extend if [edit] [no_support old versions]
-					if (param['query'] === false) return false;
-				}
-				var url = options.url || $(this).attr('m_auto_url');
-				if (m_auto_interval) clearTimeout(m_auto_interval);
-				m_auto_interval = setTimeout(function() {
-					clearTimeout(m_auto_interval);
-					m_auto_last_query = param['query'];
-					$.post(url, param, function(data) {
-						try {
-							if (after_call !== undefined) {
-								after_call(param['query'],data);
-							}
-							var obj = JSON.parse(data); // $.parseJSON
-							if (obj['query'] === m_auto_last_query) {
-								$(to_selector).html(obj['response']);
-							}
-						} catch(ex) {
-							alert('search error!');
-							alert(data);
-						}
-						m_auto_interval = false;
-					});
-				}, 400);
-				return true;
-			});
-			return false;
-		};
+
 		
 	}
 	
-	// [experemental]
-	this.hint = new (function(){
-		var hself = this;
-		this._createCont = function(){
-			$('body').append($('<div/>').addClass(mthis.def.hintsContClass));
-		};
-		this.recall = undefined;
-		this.show = function(hint,classn){
-			if (hself.recall){recall();return false;}
-			if (!mthis.def.hintsContClass) { alert('hint: '+hint); return false;}
-			if ($('.'+mthis.def.hintsContClass).length===0) hself._createCont();
-			$('.'+mthis.def.hintsContClass).append('<div style="display:none; clear:left;"><div class="'+mthis.def.hintClass+' '+classn+'">'+hint+'</div>');
-			$('.'+mthis.def.hintsContClass).find('.hint'+ms_time).animate({height: "show"}, 300);
-			
-		};
-	})();
+
 	
 	return this;
 }).call(mjsa,jQuery);
@@ -980,6 +1054,38 @@ mjsa = (function ($){
 /* 
 **************************************************************
 Version History
+
+v0.6.8.80
+scrollTo timer 500 default
+scrollPopup fix: container width 100%;
+add fontello_mades_icons to style_mjs.css
+
+v0.6.7.79
+mFormSubmit: errorSeparator, incorrectSeparator options
+
+v0.6.5.78
+getTimezone - timezone info from js 
+
+v0.6.4.77 (2013-11-27)
+_defAjaxError(), components now use _defAjaxError()
+
+v0.6.3.76 (2013-11-25)
+bodyAjax htmlInterception hot fix
+
+v0.6.2.75 (2013-11-19)
+scrollPopup hot fix for multiple popups (copy default options)
+
+v0.6.1.75 (2013-11-12)
+mjs upload. one file simple upload to support standart uploaders
+connection error hint in bodyAjax
+
+v0.6.1.74 (2013-11-08)
+mjs part: selected - work with selection
+
+v0.6.0.73 (2013-11-03)
+change default variables tree
+onClickEnterInit: new param: once
+new autocompleate - need test alpha
 
 v0.5.18.72 (2013-10-28)
 mForm callback disable btn fix
@@ -1258,7 +1364,6 @@ v0.1.0.1
 /////////////////////////////////////////////////////
 //// FUTURE /////////////////////////////////////////
 /////////////////////////////////////////////////////
-1) autocomplete( TODO: up, down, enter keys )
 2) upload ( TODO: abort, drag-and-drop)
 	http://learn.javascript.ru/xhr-onprogress
 	http://habrahabr.ru/post/154097/
@@ -1266,10 +1371,5 @@ v0.1.0.1
 	http://html5demos.com/file-api
 3) scrollPopup ( TODO: esc key - close)
 4) Phone input formatter
-5) document, selector - live event like option (autocomplete, onenterclick)
-6) selected поулчение выделеного текста
-
-
--print_hint .delay - use (page255)
 
 */
