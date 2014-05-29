@@ -3,23 +3,24 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.6.8.80
-	Last Mod: 2013-12-18 20:00
+	v0.7.0.89
+	Last Mod: 2014-05-07 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
 	// Defaults variables
-	this.wait_message = undefined; // in easilyAjax - not recommended
 	this.def = {
 		testing: false,
-		appMeetVersion: 600, // old application not supported
+		appMeetVersion: 700, // old application not supported
 		service: '#m_service', // class for executing server JS
 		bodyAjax: true,  //true, // set false for old application, and for not support body ajax server side
 		bodyAjax_inselector: '#body_cont',  //body, 
 		bodyAjax_timeout: 5000,
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
 		loadingImg: undefined, // '/pub/images/15.gif',
-		haSaveSelector: '.mjs_save', // history ajax save forms inputs selector
+		easilyDefObj: undefined, // obj or func (used for auth in iframe application)
+		haSaveSelector: '.mjsa_save', // history ajax save forms inputs selector
+		registerErrorsUrl: undefined,//'/mop/mopapi/server_error_register',
 		mform: {
 			selector: '.m_form', // mForm Selector
 			disableClass: 'disable', // mForm disable class when btn pressed
@@ -31,12 +32,13 @@ var mjsa = new (function ($){
 			incorrectSeparator:'<incorrect_separator/>'
 		},
 		hints: {
-			containerClass: 'mjs_hints_container', //'mjs_hints_container', undefined for alerts warnings, else need connect mjsa css
+			containerClass: 'mjsa_hints_container', //'mjsa_hints_container', undefined for alerts warnings, else need connect mjsa css
 			call: undefined, // application alerts or other action
-			mainClass: 'mjs_hint',
-			successClass: 'mjs_hint_success',
-			errorClass: 'mjs_hint_error',
-			simpleClass: 'mjs_hint_simple',
+			mainClass: 'mjsa_hint',
+			successClass: 'mjsa_hint_success',
+			errorClass: 'mjsa_hint_error',
+			simpleClass: 'mjsa_hint_simple',
+			closeClass: 'ficon-cancel',
 			hintLiveMs: 10000
 		},
 		htmlInterception: undefined,
@@ -52,17 +54,20 @@ var mjsa = new (function ($){
 	this._createHintsContainer = function(){ 
 		$('body').append('<div class="'+mthis.def.hints.containerClass+'"></div>');
 	};
-	this.print_hint = function(hint,className){
+	this.print_hint = function(hint,className,permanent){
 		if (mthis.def.hints.containerClass){
 			if (!className) className = mthis.def.hints.simpleClass;
 			var ms = new Date(); var ms_time = ms.getTime();
 			if ($('.'+mthis.def.hints.containerClass).length===0) mthis._createHintsContainer();
-			$('.'+mthis.def.hints.containerClass).append('<div class="hint'+ms_time+'" style="display:none; clear:left;"><div class="'+mthis.def.hints.mainClass+' '+className+'">'+hint+'</div></div>');
+			$('.'+mthis.def.hints.containerClass).append(
+					'<div class="hintwrap hint'+ms_time+'"><div class="'+mthis.def.hints.mainClass+' '+className+'">'+hint+'<span class="close '+mthis.def.hints.closeClass+'" onclick="$(this).parents(\'.hintwrap\').remove();" ></span></div></div>');
 			$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time).animate({height: "show"}, 300);
-			window.setTimeout(function(){
-				jQuery('.'+mthis.def.hints.containerClass).find('.hint'+ms_time+'')
-					.animate({height: "hide"},{duration:300,done:function(){$(this).remove();}});
-			}, mthis.def.hints.hintLiveMs);
+			if (!permanent){
+				window.setTimeout(function(){
+					$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time+'')
+						.animate({height: "hide"},{duration:300,done:function(){$(this).remove();}});
+				}, mthis.def.hints.hintLiveMs);
+			}
 		}
 		mthis.def.hints.call && mthis.def.hints.call(hint);
 		return false;
@@ -114,7 +119,10 @@ var mjsa = new (function ($){
 	this._defAjaxError = function(jqXHR, textStatus, errorThrown){
 		if (jqXHR.status === 0 && jqXHR.statusText === 'error') jqXHR.statusText = 'Connection error';
 		mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
-	}
+		if (mthis.def.registerErrorsUrl) $.post(mthis.def.registerErrorsUrl,{
+			status: jqXHR.status, statusText: jqXHR.statusText, response: jqXHR.responseText
+		});
+	};
 	this._ajax = function(options){
 		var innerOptions = $.extend(mthis.copy(options),{
 			success: function(html, textStatus, XMLHttpRequest){
@@ -138,16 +146,43 @@ var mjsa = new (function ($){
 	
 	// scroll to value in pixels or to selector
 	this.scrollTo = function(value,timer){
-		if(timer === undefined) timer = 500;
+		if(timer === undefined )timer = 500;
 		var item =  $("html,body");
 		if(typeof(value)==="number")  {
 			item.animate({scrollTop: value},timer);
 		} else {
+			if (!$(value).length) return false;
 			var sct = $(value).offset().top;
 			item.animate({scrollTop: sct},timer);
 		}
 		return false;
 	};
+	
+	this.urlParams = function(params,url){
+		if (params===undefined){
+			if (!location.search) return {};
+			var data = {};
+			var pairs = location.search.substr(1).split('&');
+			for(var i = 0; i < pairs.length; i++){
+				var param = pairs[i].split('=');
+				data[param[0]] = decodeURIComponent(param[1]);
+			}
+			return data;
+		} else {
+			url = url || '';
+			var paramStr = [];
+			for(var key in params){
+				if (params[key] !== ''){
+					paramStr.push(key+'='+encodeURIComponent(params[key]));
+				}
+			}
+			return url+'?'+paramStr.join('&');
+		}
+	};
+	this.loadImg = function(src,selector){
+		// [TODO]
+		//$("<img/>").attr("src", src);
+	}
 	
 	// for js
 	this.getPosition = function(e){
@@ -182,8 +217,6 @@ var mjsa = new (function ($){
 							ret[name] = '';
 						}
 					}
-				} else if ($(this).is('[take=html]')) { // [deprecated]
-					ret[name] = $(this).html(); 
 				} else if ($(this).is('.take_html, [data-take=html]')) {
 					ret[name] = $(this).html();
 				} else if ($(this).hasClass('ckeditor')){
@@ -205,28 +238,38 @@ var mjsa = new (function ($){
 		for(var key in collected){
 			el = $(selector+'[name='+key+'],'+selector+'[data-name='+key+']');
 			if ((el.attr('type') === 'text') || el.is('textarea')) el.val(collected[key]);
-			if (el.is('[take=html]')) el.html(collected[key]); // [deprecated]
 			if (el.is('.take_html, [data-take=html]')) el.html(collected[key]);
 		}
 	};
 	// easilyPostAjax
-	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, add_callback, add_precall, opt){
-		if (!opt) opt = {};
-		if (post_obj === undefined) post_obj = {};
-		var data = $.extend(post_obj,mthis.collectParams(post_selector));
-		if (add_precall !== undefined) { 
-			if (add_precall(data)) return false;
+	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, callback, before_call, opt){
+		opt = opt || {};
+		opt.disableClass = mthis.def.mform.disableClass;
+		post_obj = post_obj || {};
+		if (mthis.def.easilyDefObj) {
+			var ext = mthis.def.easilyDefObj;
+			if(typeof ext === 'function') ext = ext();
+			post_obj = $.extend(ext, post_obj);
 		}
-		if ((mthis.wait_message !== undefined) && (insert_selector !== undefined)){
-			$(insert_selector).html(mthis.wait_message);
+		var data = $.extend(post_obj,mthis.collectParams(post_selector));
+		if (before_call && !before_call(data)) return false; 
+		if (opt.el){
+			if ($(opt.el).hasClass(opt.disableClass)) return false; else $(opt.el).addClass(opt.disableClass);
 		}
 		mthis._ajax({
-			url: url, type: 'POST', data: data,
-			success:function(data) {
-				if (insert_selector !== undefined) mthis.html(insert_selector,data);
-				if (add_callback !== undefined) add_callback(data);
+			url: url, type: opt.ajaxtype || 'POST', data: data,
+			success:function(resp) {
+				if (!opt.isDoHtml || opt.isDoHtml()){
+					if (insert_selector !== undefined) mthis.html(insert_selector,resp);
+				}
+				if (opt.el) $(opt.el).removeClass(opt.disableClass);
+				callback && callback(resp,data);
 			},
-			error: opt.error
+			error: function(jqXHR, textStatus, errorThrown){
+				if (opt.el) $(opt.el).removeClass(opt.disableClass);
+				if (opt.error) opt.error(jqXHR, textStatus, errorThrown);
+				else mthis._defAjaxError(jqXHR, textStatus, errorThrown);
+			}
 		});
 		return false;
 	};
@@ -235,11 +278,11 @@ var mjsa = new (function ($){
 		var opt = $.extend(mthis.copy(mthis.def.mform), options || {});
 		if ($(el).hasClass(opt.disableClass)) return false; else $(el).addClass(opt.disableClass);
 		$(el).parents(opt.selector).find(opt.errorSelector).html('');
-		var paramSelector = $(el).parents(opt.selector).find(opt.inSelector).removeClass(opt.incorrectClass);
-		mthis.easilyPostAjax(link, opt.service, {}, paramSelector,
-			function(response){
+		var paramSelector = $(el).parents(opt.selector).find('.'+opt.incorrectClass).removeClass(opt.incorrectClass).end().find(opt.inSelector);
+		mthis.easilyPostAjax(link, opt.service, opt.param || {}, paramSelector,
+			function(response,data){
 				$(el).removeClass(opt.disableClass);
-				if (opt.callback && !opt.callback(response,el)) return false;
+				if (opt.callback && !opt.callback(response,data,el)) return false;
 				var incorrect = mthis.grabResponseTag(response,opt.incorrectSeparator);
 				if (incorrect){
 					$(el).parents(opt.selector).find('[name='+incorrect+']').addClass(opt.incorrectClass);
@@ -249,24 +292,25 @@ var mjsa = new (function ($){
 					$(el).parents(opt.selector).find(opt.errorSelector).html(error_msg);
 				}
 				return false;
-			}, undefined,{
+			}, undefined,$.extend({
 				error: function(jqXHR, textStatus, errorThrown){
 					$(el).removeClass(opt.disableClass);
 					mthis._defAjaxError(jqXHR, textStatus, errorThrown);
-				}
-			});
+				}},opt.easyOpt || {})
+			);
 		return false;		
 	};
 	// *** "HTML5 History" Body Ajax [BETA] ***
 	this._get_ajaxShadow = function(){
 		var inner = '';
-		if(mthis.def.loadingImg) inner += '<img class="mjs_loader" src="'+mthis.def.loadingImg+'">';
-		if($('.mjs_ajax_shadow').length === 0) $('body').append('<div class="mjs_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>'); // [TODO: remove inner, use rgba]
-		return $('.mjs_ajax_shadow');
+		if(mthis.def.loadingImg) inner += '<img class="mjsa_loader" src="'+mthis.def.loadingImg+'">';
+		if($('.mjsa_ajax_shadow').length === 0) $('body').append('<div class="mjsa_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>'); // [TODO: remove inner, use rgba]
+		return $('.mjsa_ajax_shadow');
 	};
 	this._bodyAjax_lastlink = '';
 	this.bodyAjax = function(link,opt){
-		if (!opt) opt = {};
+		opt = opt || {};
+		if (opt.before_call && !opt.before_call(link,opt)) return false;
 		var noajax = false; if (opt && opt.el) noajax = $(opt.el).attr('noajax');
 		if ((link.indexOf('http') === 0) || !(window.history && history.pushState) || (noajax)) {
 			if (mthis.def.testing) { //[testing]
@@ -381,7 +425,8 @@ var mjsa = new (function ($){
 		if (mthis.def.htmlInterception){
 			if (!mthis.def.htmlInterception(content)) return jSel; // interception (like <redirect_separator/>/auth)
 		}
-		if (content.indexOf('<mjs_separator/>') === -1) { // quick end
+		if (content.substring(0,'<mjsa_separator/>'.length) !== '<mjsa_separator/>'
+			&& content.substring(0,'<mjs_separator/>'.length) !== '<mjs_separator/>') { // quick end
 			jSel.html(content);
 			return jSel;
 		}
@@ -450,6 +495,15 @@ var mjsa = new (function ($){
 				needHtml = false;
 			}
 		}
+		if (content.indexOf('<noservice_separator/>') !== -1) {
+			content_separated = content.split('<noservice_separator/>');
+			if (content_separated.length > 2){
+				content = content_separated[0];
+				for(i = 1; i < content_separated.length; i++) {
+					if (!(i%2)) content += content_separated[i];
+				}
+			}
+		}
 		if (content.indexOf('<stop_separator/>') !== -1) needHtml = false;
 		if (needHtml) {
 			jSel.html(content);
@@ -465,6 +519,75 @@ var mjsa = new (function ($){
 		}
 		return false;
 	};
+	
+	/*
+	opt = {
+		url:'',
+		name:'',
+		
+		lang_unsupport:'',
+		lang_fileprocess:'',
+		lang_uploaded:'',
+		
+		max_size: 10000000,
+		max_files: 1,
+		one_file_simple: true,
+		allow_ext: ['jpg','jpeg','png','gif'],
+	};
+	*/
+	this.mUploadForm = function(selector,callback,opt){
+		opt = opt || {};
+		var def = {
+			input_file : selector+' .mUpload',
+			url: '/japi/upload',
+			name: 'mFile',
+			max_size: 10000000,
+			max_files: 1,
+			one_file_simple: true,
+			allow_ext: ['jpg','jpeg','png','gif'],
+		};
+		var mUploadOpt = $.extend(mthis.copy(def),{
+			unsupport: function(){
+				mjsa.print_error(opt.lang_unsupport || 'Ваш браузер устарел и не поддерживает современную технологию загрузки файлов');
+			},
+			pre_call: function(obj){
+				$(selector).find('.mUpload').hide();
+				$(selector).find('.m_progressbar_container').show().find('.track').css('width','0%');
+			},
+			process_call: function(obj,info){
+				var percent = parseInt( info.loaded * 100 / info.total);
+				$(selector).find('.m_progressbar_container .track').css('width',''+percent+'%');
+				if (percent >= 99){
+					$(selector).find('.m_progressbar_container .counter_text').html(opt.lang_fileprocess || 'Обработка файлов...');
+				} else {
+					$(selector).find('.m_progressbar_container .counter_text').html((opt.lang_uploaded || 'Загружено') + ' ' + parseInt(info.loaded / 1024) + ' КB / ' + parseInt(info.total / 1024) + ' KB');
+				}
+			},
+			after_call: function(obj){
+				$(selector).find('.mUpload').show();
+				$(selector).find('.m_progressbar_container').hide()
+				var error = mjsa.grabResponseTag(obj.response,'<error_separator/>');
+				if (error){ mjsa.print_error(error); return false; }
+				if (callback) callback(obj.response);
+				else mjsa.html(mthis.def.service,obj.response);
+			},			
+		},opt);
+		if (opt && opt.cancel) {
+			mUploadOpt.action = 'cancel';
+			mthis.upload(mUploadOpt);
+			return false;
+		}
+		var html = '<input type="file" class="standart_input mUpload" '+((mUploadOpt.max_files > 1)?'multiple':'')+' name="'+mUploadOpt.name+'" />';
+		html += '<div class="m_progressbar_container" style="display:none;">'
+			html += '<div class="progressbar"><div class="track"></div></div>';
+			html += '<div class="m_cancel'+ ((opt.cancelClass)?' '+opt.cancelClass:'') +'" onclick="return mjsa.mUploadForm(\''+selector+'\',undefined,{cancel:true})">';
+				html += opt.cancelText || 'Cancel';
+			html += '</div><div class="counter_text"></div>';
+		html += '</div>';
+		$(selector).html(html);
+		mthis.upload(mUploadOpt);
+		return false;
+	};	
 	/* HTML 5 upload files: used FormData
 	var options = {
 		input_file : '#uploadfile',
@@ -488,11 +611,17 @@ var mjsa = new (function ($){
 	}; */
 	this.upload = function(opt){
 		// TODO: upload drag and drop
-		// TODO: abort
-		if (!opt) opt = {};
+		opt = opt || {};
 		var http = null;
-		if (!opt.url) opt.url = '/upload'
+		opt.url = opt.url || '/upload';
 		if (opt.input_file !== undefined){
+			if (opt.action === 'cancel'){
+				http = $(opt.input_file).data('http');
+				$(opt.input_file).val('');
+				http && http.abort(); 
+				opt.after_call && opt.after_call();
+				return false;
+			}
 			$(opt.input_file).on('change',function(event){
 				var files_info = $(this)[0].files;
 				if (files_info === undefined || window.FormData === undefined) {
@@ -501,13 +630,13 @@ var mjsa = new (function ($){
 				}
 				if (!files_info.length) return false;
 				http = mthis._upload(files_info,opt);
-				// load HTTP handler to selector data;
+				$(opt.input_file).data('http',http);
 			});
 		}
-		return http; // note: return null
+		return http; 
 	};
 	this._upload = function(files_info,opt){
-		if (opt.bafore_call && opt.bafore_call(files_info) === false) return false;
+		if (opt.before_call && !opt.before_call(files_info)) return false;
 		var files = [];
 		for (var i = 0; i < files_info.length; i++) {
 			if (opt.max_size && files_info[i].size && files_info[i].name && files_info[i].size > opt.max_size){
@@ -525,6 +654,7 @@ var mjsa = new (function ($){
 				files.push(files_info[i]);
 			}
 		}
+		if (!files.length) return false;
 		var http = new XMLHttpRequest();
 		if (http.upload && http.upload.addEventListener) {
 			http.upload.addEventListener('progress',function(e) {
@@ -577,25 +707,25 @@ var mjsa = new (function ($){
 	//	timeoutCall: function(){}
 	//}
 	this.geoLocation = function(func,options){
-		if (!options) options = {};
-		if (func===undefined) func = mthis._geoLocationDefCall;
-		if (!options.timeout) options.timeout = 60000;
+		options = options || {};
+		func = func || mthis._geoLocationDefCall;
+		options.timeout = options.timeout || 60000;
 		if(!navigator.geolocation){
-			if (options.notSupportCall) options.notSupportCall();
-			if (options.noLocationCall) options.noLocationCall();
+			options.notSupportCall && options.notSupportCall();
+			options.noLocationCall && options.noLocationCall();
 			return false;
 		}
 		navigator.geolocation.getCurrentPosition(
 			func, function(err){
 				mthis.def.testing && mthis.debug(err);
 				if(err.code === 1) {
-					if (options.accessDeniedCall) options.accessDeniedCall();
+					options.accessDeniedCall && options.accessDeniedCall();
 				}else if(err.code === 2) {
-					if (options.unavailablePosCall) options.unavailablePosCall();
+					options.unavailablePosCall && options.unavailablePosCall();
 				}else if(err.code === 3) {
-					if (options.timeoutCall) options.timeoutCall();
+					options.timeoutCall && options.timeoutCall();
 				}
-				if (options.noLocationCall) options.noLocationCall();
+				options.noLocationCall && options.noLocationCall();
 			},options
 		);
 		return false;
@@ -604,12 +734,12 @@ var mjsa = new (function ($){
 	/* LocalStorage and SessionStorage
 	opt = {local: true, clear:true, unsupportCall: function(){}} */
 	this.webStorage = function(opt,key,value){
-		if (!opt) opt = {};
+		opt = opt || {};
 		var storeType = undefined;
 		if (opt.local) storeType = window.localStorage;
 		else storeType = window.sessionStorage;
 		if (!storeType){
-			if (opt.unsupportCall) opt.unsupportCall();
+			opt.unsupportCall && opt.unsupportCall();
 			return false;
 		}
 		if (opt.clear) {
@@ -670,7 +800,7 @@ var mjsa = new (function ($){
 	};
 	
 	this.selected = function(opt){
-		if (!opt) opt = {};
+		opt = opt || {};
 		var w = opt.window || window;
 		
 		var sel = mthis._getSelection(w);
@@ -739,12 +869,14 @@ var mjsa = new (function ($){
 		var defOpt = {
 			to_selector: '#test',
 			itemSelector: '.item',
+			queryAttr:'data-value',
 			selectedClass: 'selected',
 			url: '/default/autocomplete',
 			param: undefined,// aditional POST params as default
 			collect: undefined, // collect values to param
 			minchars: 2,
 			once: undefined, // init for one time only
+			scrollerSelector: undefined
 		};
 		var opt = $.extend(mthis.copy(defOpt), options || {});
 		
@@ -755,13 +887,45 @@ var mjsa = new (function ($){
 		$(jDoc).on('keydown', jSel, function(e){
 			// Interception up, down,enter, escape keys
 			if (e.keyCode && (e.keyCode===38 || e.keyCode===40 || e.keyCode===13 || e.keyCode===27)){ 
-				if (e.keyCode===38){ // up key: select previos item
+				if (e.keyCode===38 || e.keyCode===40){ // up key: select previos item
+					var borderSel = ':last';
+					if (e.keyCode===40) borderSel = ':first'; //key down
 					var $selected = $(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass);
-					var $selected = (($selected.prev(opt.itemSelector).length)?$selected.prev(opt.itemSelector):$selected.parent().children(opt.itemSelector+':last')).addClass(opt.selectedClass);
-				}
-				if (e.keyCode===40){ // down key: select next item
-					var $selected = $(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass);
-					var $selected = (($selected.next(opt.itemSelector).length)?$selected.next(opt.itemSelector):$selected.parent().children(opt.itemSelector+':first')).addClass(opt.selectedClass);
+					if (!$selected.length){
+						$selected = $(opt.to_selector).find(opt.itemSelector+borderSel).addClass(opt.selectedClass);
+						$(this).attr(opt.queryAttr,$(this).val());
+						$(this).val($selected.attr(opt.queryAttr)||$(this).val());
+					} else {
+						$selected = (e.keyCode===40)?$selected.next(opt.itemSelector).addClass(opt.selectedClass)
+									:$selected.prev(opt.itemSelector).addClass(opt.selectedClass);
+						if (!$selected.length) {
+							$(this).val($(this).attr(opt.queryAttr)||$(this).val());
+						} else {
+							$(this).val($selected.attr(opt.queryAttr)||$(this).val());
+						}
+					}
+					opt.call_choose && opt.call_choose($selected,opt);
+					if(opt.call_scroller) { opt.call_scroller($selected,opt); 
+					} else {
+						if (opt.scrollerSelector){
+							var $scroller = $(opt.to_selector).find(opt.scrollerSelector);
+							if ($selected.length && opt.scrollerSelector){
+								var contentHeight = $scroller[0].scrollHeight;
+								var scrollTop = $scroller.scrollTop();
+								var scrollHeight = $scroller.height();
+								var maxScrollTop = contentHeight - scrollHeight;
+								if ($selected[0].offsetTop < scrollTop
+									|| $selected[0].offsetTop+$selected.height() > scrollTop + scrollHeight
+								){
+									var scrollTo = $selected[0].offsetTop;
+									if (scrollTo > maxScrollTop) scrollTo = maxScrollTop;
+									$scroller.scrollTop(scrollTo);
+								}
+							} else {
+								$scroller.scrollTop(0);
+							}
+						}
+					}
 				}
 				e.preventDefault();
 				e.stopImmediatePropagation();
@@ -782,8 +946,8 @@ var mjsa = new (function ($){
 				e.stopImmediatePropagation();
 				return false;
 			}
-			if (!opt.param) opt.param = {};
-			if (opt.url === undefined) opt.url = '';
+			opt.param = opt.param || {};
+			opt.url = opt.url || '';
 			var self = this;
 			if (hndlr) clearTimeout(hndlr);
 			hndlr = setTimeout(function() {
@@ -799,7 +963,7 @@ var mjsa = new (function ($){
 					}
 				}
 				if (opt.call_before !== undefined) {
-					var ret = opt.call_before(opt.param,this,e);
+					var ret = opt.call_before(opt.param,self,e);
 					if (ret === false) return false;
 					if (ret.query !== undefined) opt.param = ret;
 				}
@@ -808,7 +972,7 @@ var mjsa = new (function ($){
 					try {
 						var obj = JSON.parse(data);
 						if (obj.query === last_query) {
-							if (opt.call_after === undefined || opt.call_after(opt.param,data) !== false) {
+							if (opt.call_after === undefined || opt.call_after(opt.param,self,data) !== false) {
 								$(opt.to_selector).show().html(obj.response);
 							}
 						}
@@ -827,7 +991,6 @@ var mjsa = new (function ($){
 	// enterclick activate
 	this._enterClickDefCall = function(){
 		eval($(this).attr("data-onclickenter")); return false;
-		eval($(this).attr("onclickenter")); return false; // [deprecated]
 	};
 	this.onClickEnterInit = function(selector,opt){
 		var jDoc = document, jSel = selector;
@@ -1036,9 +1199,8 @@ mjsa = (function ($){
 mjsa = (function ($){
 	var mthis = this;
 
-	if (mthis.def.appMeetVersion < 600) {
+	if (mthis.def.appMeetVersion < 700) {
 		//[deprecated functions]
-
 
 		
 	}
@@ -1049,3 +1211,4 @@ mjsa = (function ($){
 }).call(mjsa,jQuery);
 
 // ***** END DEPRECATED ADDON *****
+

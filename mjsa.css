@@ -1,19 +1,21 @@
-/*! mjs.css - v0.5.12
+/*! mjsa.css - v0.7.0
 * https://github.com/madeS/mjsa
-* Copyright (c) 2013 Andrei Bogarevich; Licensed MIT */
-.mjs_hints_container{ position: fixed; top: 0; left: 0; width: auto; z-index:30;}
-.mjs_hints_container .mjs_hint {float:left; clear:left; margin: 8px; color: #333; font-weight: bold; font-size: 14px; padding: 5px; border-radius: 3px;}
-.mjs_hints_container .mjs_hint.mjs_hint_success { background-color: #cfc;}
-.mjs_hints_container .mjs_hint.mjs_hint_error { background-color: #fcc;}
-.mjs_hints_container .mjs_hint.mjs_hint_simple { background-color: #ccf;}
+* Copyright (c) 2013-2014 Andrei Bogarevich; Licensed MIT */
+.mjsa_hints_container{ position: fixed; top: 0; left: 0; width: auto; z-index:300;}
+.mjsa_hints_container .hintwrap{ display:none; clear:left;}
+.mjsa_hints_container .mjsa_hint { position: relative; float:left; clear:left; margin: 8px; color: #333; font-weight: bold; font-size: 14px; padding: 5px 25px 5px 5px; border-radius: 3px;}
+.mjsa_hints_container .mjsa_hint .close { cursor: pointer; position: absolute; top: 5px; right: 5px;  }
+.mjsa_hints_container .mjsa_hint .close:hover { color: #fff; background-color: #555; } 
+.mjsa_hints_container .mjsa_hint.mjsa_hint_success { background-color: #cfc;}
+.mjsa_hints_container .mjsa_hint.mjsa_hint_error { background-color: #fcc;}
+.mjsa_hints_container .mjsa_hint.mjsa_hint_simple { background-color: #ccf;}
 .m_incorrect {border: 1px solid #f33 !important;}
 .m_disable_cont {position: relative}
 .m_disable_layer {position:absolute; top: 0; left: 0; width:100%; height: 100%; display:none;}
 .m_owhite{background-color: #fff; opacity: 0.5;}
-.mjs_ajax_shadow{position:fixed; width:100%; height:100%; top:0; left: 0; z-index:1000;  display:none;}
-.mjs_ajax_shadow .inner{ width:100%; height: 100%; background-color:#000; opacity:0.6;}
-.mjs_ajax_shadow .mjs_loader{ position: absolute; top: 0;/* 36%;*/ left: 50%; margin-left: -80px; margin-top: 0px;/*-10px;*/ background-color: #D0D0D0; border: 1px solid #555;}
-
+.mjsa_ajax_shadow{position:fixed; width:100%; height:100%; top:0; left: 0; z-index:1000;  display:none;}
+.mjsa_ajax_shadow .inner{ width:100%; height: 100%; background-color:#000; opacity:0.6;}
+.mjsa_ajax_shadow .mjsa_loader{ position: absolute; top: 0;/* 36%;*/ left: 50%; margin-left: -80px; margin-top: 0px;/*-10px;*/ background-color: #D0D0D0; border: 1px solid #555;}
 span.tf{
    display:inline-block; position:absolute;
    right:0px; bottom:0px; width:20px; height:100%;
@@ -23,6 +25,14 @@ span.tf{
    background-image: -ms-linear-gradient(left, rgba(255,255,255,0), rgba(255,255,255,1));
    background-image: linear-gradient(left, rgba(255,255,255,0), rgba(255,255,255,1));
 }
+
+/* mUploadForm */
+.m_progressbar_container { width: 300px; }
+.m_progressbar_container .progressbar{ width: 100%; height: 10px; border:none; border-bottom: 1px solid #000; }
+.m_progressbar_container .progressbar .track{ height: 100%; width:0%; background-color: #000; }
+.m_progressbar_container .counter_text{ margin-top: 5px; }
+.m_progressbar_container .m_cancel{ float: right;  margin-top: 5px; }
+
 
 /*! Hint.css - v0.1.0 - 2013-02-03
 * https://github.com/chinchang/hint.css
@@ -155,14 +165,19 @@ span.tf{
   }
 }
 */
- 
- [class^="ficon-"]:before, [class*=" ficon-"]:before, .ficonc {
+   
+[class^="ficon-"], [class*=" ficon-"], .ficonc{
+	display: inline-block;
+	vertical-align: inherit;
+	font-size: larger;
+}
+[class^="ficon-"]:before, [class*=" ficon-"]:before, .ficonc {
   font-family: "fontello_mades_icons";
   font-style: normal;
   font-weight: normal;
   speak: none;
  
-  display: inline-block;
+  
   text-decoration: inherit;
   width: 1em;
   margin-right: .2em;
@@ -175,6 +190,7 @@ span.tf{
      
   /* fix buttons height, for twitter bootstrap */
   line-height: 1em;
+
  
   /* Animation center compensation - margins should be symmetric */
   /* remove if not needed */
@@ -182,6 +198,7 @@ span.tf{
  
   /* you can be more comfortable with increased icons size */
   /* font-size: 120%; */
+  
  
   /* Uncomment for 3D effect */
   /* text-shadow: 1px 1px 1px rgba(127, 127, 127, 0.3); */
@@ -755,5 +772,7 @@ span.tf{
 .ficon-cancel-curved:before { content: '\e805'; } 
 .ficon-clock-alt:before { content: '\e843'; } 
 .ficon-anchor:before { content: '\e960'; } 
+
+
 
 
