@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.7.0.89
-	Last Mod: 2014-05-07 20:00
+	v0.7.1.90
+	Last Mod: 2014-05-30 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -46,7 +46,11 @@ var mjsa = new (function ($){
 	};
 	
 	this.copy = function(obj){ return JSON.parse(JSON.stringify(obj)); };
-	
+	this.get = function(obj){
+		var ret = obj;
+		if(typeof obj === 'function') ret = obj();
+		return ret;
+	};
 	//  *** error message ***
 	this.print_error = function(error_msg){
 		return mthis.print_hint(error_msg,mthis.def.hints.errorClass);
@@ -247,8 +251,7 @@ var mjsa = new (function ($){
 		opt.disableClass = mthis.def.mform.disableClass;
 		post_obj = post_obj || {};
 		if (mthis.def.easilyDefObj) {
-			var ext = mthis.def.easilyDefObj;
-			if(typeof ext === 'function') ext = ext();
+			var ext = mthis.get(mthis.def.easilyDefObj);
 			post_obj = $.extend(ext, post_obj);
 		}
 		var data = $.extend(post_obj,mthis.collectParams(post_selector));
@@ -259,8 +262,12 @@ var mjsa = new (function ($){
 		mthis._ajax({
 			url: url, type: opt.ajaxtype || 'POST', data: data,
 			success:function(resp) {
-				if (!opt.isDoHtml || opt.isDoHtml()){
-					if (insert_selector !== undefined) mthis.html(insert_selector,resp);
+				if (insert_selector !== undefined && (opt.isDoHtml===undefined || mthis.get(opt.isDoHtml))){
+					if (mthis.get(opt.simpleHtml)){
+						$(insert_selector).html(resp);
+					} else {
+						mthis.html(insert_selector,resp);
+					}
 				}
 				if (opt.el) $(opt.el).removeClass(opt.disableClass);
 				callback && callback(resp,data);
@@ -1211,4 +1218,3 @@ mjsa = (function ($){
 }).call(mjsa,jQuery);
 
 // ***** END DEPRECATED ADDON *****
-
