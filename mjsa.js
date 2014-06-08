@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.7.1.90
-	Last Mod: 2014-05-30 20:00
+	v0.8.0.91
+	Last Mod: 2014-06-08 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -52,13 +52,13 @@ var mjsa = new (function ($){
 		return ret;
 	};
 	//  *** error message ***
-	this.print_error = function(error_msg){
-		return mthis.print_hint(error_msg,mthis.def.hints.errorClass);
+	this.printError = function(error_msg){
+		return mthis.printHint(error_msg,mthis.def.hints.errorClass);
 	};
 	this._createHintsContainer = function(){ 
 		$('body').append('<div class="'+mthis.def.hints.containerClass+'"></div>');
 	};
-	this.print_hint = function(hint,className,permanent){
+	this.printHint = function(hint,className,permanent){
 		if (mthis.def.hints.containerClass){
 			if (!className) className = mthis.def.hints.simpleClass;
 			var ms = new Date(); var ms_time = ms.getTime();
@@ -95,7 +95,7 @@ var mjsa = new (function ($){
 		} else  print_red_text = "==>"+arr+"<==("+typeof(arr)+")";
 		return print_red_text;
 	};
-	this.debug_param = function(e){alert(this.print_r(e));};
+	this.debugParam = function(e){alert(this.print_r(e));};
 	this.debug = function(e){console.log('debugging:',e);};
 
 	// *** selectable support ***
@@ -122,7 +122,7 @@ var mjsa = new (function ($){
 	this._ajax_recurs = 3;
 	this._defAjaxError = function(jqXHR, textStatus, errorThrown){
 		if (jqXHR.status === 0 && jqXHR.statusText === 'error') jqXHR.statusText = 'Connection error';
-		mthis.print_error('Error '+jqXHR.status+': '+jqXHR.statusText);
+		mthis.printError('Error '+jqXHR.status+': '+jqXHR.statusText);
 		if (mthis.def.registerErrorsUrl) $.post(mthis.def.registerErrorsUrl,{
 			status: jqXHR.status, statusText: jqXHR.statusText, response: jqXHR.responseText
 		});
@@ -246,7 +246,7 @@ var mjsa = new (function ($){
 		}
 	};
 	// easilyPostAjax
-	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, callback, before_call, opt){
+	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, callback, callBefore, opt){
 		opt = opt || {};
 		opt.disableClass = mthis.def.mform.disableClass;
 		post_obj = post_obj || {};
@@ -255,7 +255,7 @@ var mjsa = new (function ($){
 			post_obj = $.extend(ext, post_obj);
 		}
 		var data = $.extend(post_obj,mthis.collectParams(post_selector));
-		if (before_call && !before_call(data)) return false; 
+		if (callBefore && !callBefore(data)) return false; 
 		if (opt.el){
 			if ($(opt.el).hasClass(opt.disableClass)) return false; else $(opt.el).addClass(opt.disableClass);
 		}
@@ -308,16 +308,16 @@ var mjsa = new (function ($){
 		return false;		
 	};
 	// *** "HTML5 History" Body Ajax [BETA] ***
-	this._get_ajaxShadow = function(){
+	this._getAjaxShadow = function(){
 		var inner = '';
 		if(mthis.def.loadingImg) inner += '<img class="mjsa_loader" src="'+mthis.def.loadingImg+'">';
 		if($('.mjsa_ajax_shadow').length === 0) $('body').append('<div class="mjsa_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>'); // [TODO: remove inner, use rgba]
 		return $('.mjsa_ajax_shadow');
 	};
-	this._bodyAjax_lastlink = '';
+	this._bodyAjaxLastLink = '';
 	this.bodyAjax = function(link,opt){
 		opt = opt || {};
-		if (opt.before_call && !opt.before_call(link,opt)) return false;
+		if (opt.callBefore && !opt.callBefore(link,opt)) return false;
 		var noajax = false; if (opt && opt.el) noajax = $(opt.el).attr('noajax');
 		if ((link.indexOf('http') === 0) || !(window.history && history.pushState) || (noajax)) {
 			if (mthis.def.testing) { //[testing]
@@ -338,14 +338,14 @@ var mjsa = new (function ($){
 			}
 			return false;
 		}
-		mthis._get_ajaxShadow().animate({opacity: "show"},150);
-		mthis._bodyAjax_lastlink = link;
+		mthis._getAjaxShadow().animate({opacity: "show"},150);
+		mthis._bodyAjaxLastLink = link;
 		mthis._ajax({
 			url: link, type: 'GET', data: {body_ajax: 'true'}, timeout:mthis.def.bodyAjax_timeout,
 			success:function(content){ 
 				var collected = mthis.collectParams(mthis.def.haSaveSelector);
 				var content_separated = undefined;
-				if (mthis._bodyAjax_lastlink !== link) return false;
+				if (mthis._bodyAjaxLastLink !== link) return false;
 				if (content.indexOf('<ajaxbody_separator/>') !== -1) {
 					content_separated = content.split('<ajaxbody_separator/>');
 					if ((content_separated.length > 1)) { //  && (content.indexOf('<redirect_separator/>') === -1) [edit] something wrong with redirect 
@@ -367,10 +367,10 @@ var mjsa = new (function ($){
 					mthis.html('body',content);
 				}
 				mthis.loadCollectedParams(mthis.def.haSaveSelector,collected);
-				mthis._get_ajaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
+				mthis._getAjaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
 			},
 			error:function(jqXHR, textStatus, errorThrown){
-				mthis._get_ajaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
+				mthis._getAjaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
 				mthis._defAjaxError(jqXHR, textStatus, errorThrown);
 			}
 		});
@@ -382,7 +382,7 @@ var mjsa = new (function ($){
 	this.bodyAjaxInit = function(selector){
 		if (!selector) selector = 'a';
 		if(!mthis.def.bodyAjax) {
-			mthis.print_error('"Html 5 Body Ajax" disabled in MJS settings');
+			mthis.printError('"Html 5 Body Ajax" disabled in MJS settings');
 			return false;
 		}
 		$(document).on('click', selector, function(){
@@ -432,8 +432,7 @@ var mjsa = new (function ($){
 		if (mthis.def.htmlInterception){
 			if (!mthis.def.htmlInterception(content)) return jSel; // interception (like <redirect_separator/>/auth)
 		}
-		if (content.substring(0,'<mjsa_separator/>'.length) !== '<mjsa_separator/>'
-			&& content.substring(0,'<mjs_separator/>'.length) !== '<mjs_separator/>') { // quick end
+		if (content.substring(0,'<mjsa_separator/>'.length) !== '<mjsa_separator/>') { // quick end
 			jSel.html(content);
 			return jSel;
 		}
@@ -446,13 +445,13 @@ var mjsa = new (function ($){
 		if (content.indexOf('<error_separator/>') !== -1) {
 			content_separated = content.split('<error_separator/>');
 			if (content_separated.length > 1) {
-				mthis.print_error(content_separated[1]);
+				mthis.printError(content_separated[1]);
 			}
 		}
 		if (content.indexOf('<success_separator/>') !== -1) {
 			content_separated = content.split('<success_separator/>');
 			if (content_separated.length > 1) {
-				mthis.print_hint(content_separated[1],mthis.def.hints.successClass);
+				mthis.printHint(content_separated[1],mthis.def.hints.successClass);
 			}
 		}
 		if (content.indexOf('<alert_separator/>') !== -1) {
@@ -532,49 +531,49 @@ var mjsa = new (function ($){
 		url:'',
 		name:'',
 		
-		lang_unsupport:'',
-		lang_fileprocess:'',
-		lang_uploaded:'',
+		langUnsupport:'',
+		langFileProcess:'',
+		langUploaded:'',
 		
-		max_size: 10000000,
-		max_files: 1,
-		one_file_simple: true,
-		allow_ext: ['jpg','jpeg','png','gif'],
+		maxSize: 10000000,
+		maxFiles: 1,
+		oneFileSimple: true,
+		allowExt: ['jpg','jpeg','png','gif'],
 	};
 	*/
 	this.mUploadForm = function(selector,callback,opt){
 		opt = opt || {};
 		var def = {
-			input_file : selector+' .mUpload',
+			inputFile : selector+' .mUpload',
 			url: '/japi/upload',
 			name: 'mFile',
-			max_size: 10000000,
-			max_files: 1,
-			one_file_simple: true,
-			allow_ext: ['jpg','jpeg','png','gif'],
+			maxSize: 10000000,
+			maxFiles: 1,
+			oneFileSimple: true,
+			allowExt: ['jpg','jpeg','png','gif'],
 		};
 		var mUploadOpt = $.extend(mthis.copy(def),{
-			unsupport: function(){
-				mjsa.print_error(opt.lang_unsupport || 'Ваш браузер устарел и не поддерживает современную технологию загрузки файлов');
+			callUnsupported: function(){
+				mjsa.printError(opt.langUnsupport || 'Ваш браузер устарел и не поддерживает современную технологию загрузки файлов');
 			},
-			pre_call: function(obj){
+			callPre: function(obj){
 				$(selector).find('.mUpload').hide();
 				$(selector).find('.m_progressbar_container').show().find('.track').css('width','0%');
 			},
-			process_call: function(obj,info){
+			callProcess: function(obj,info){
 				var percent = parseInt( info.loaded * 100 / info.total);
 				$(selector).find('.m_progressbar_container .track').css('width',''+percent+'%');
 				if (percent >= 99){
-					$(selector).find('.m_progressbar_container .counter_text').html(opt.lang_fileprocess || 'Обработка файлов...');
+					$(selector).find('.m_progressbar_container .counter_text').html(opt.langFileProcess || 'Обработка файлов...');
 				} else {
-					$(selector).find('.m_progressbar_container .counter_text').html((opt.lang_uploaded || 'Загружено') + ' ' + parseInt(info.loaded / 1024) + ' КB / ' + parseInt(info.total / 1024) + ' KB');
+					$(selector).find('.m_progressbar_container .counter_text').html((opt.langUploaded || 'Загружено') + ' ' + parseInt(info.loaded / 1024) + ' КB / ' + parseInt(info.total / 1024) + ' KB');
 				}
 			},
-			after_call: function(obj){
+			callAfter: function(obj){
 				$(selector).find('.mUpload').show();
 				$(selector).find('.m_progressbar_container').hide()
 				var error = mjsa.grabResponseTag(obj.response,'<error_separator/>');
-				if (error){ mjsa.print_error(error); return false; }
+				if (error){ mjsa.printError(error); return false; }
 				if (callback) callback(obj.response);
 				else mjsa.html(mthis.def.service,obj.response);
 			},			
@@ -584,7 +583,7 @@ var mjsa = new (function ($){
 			mthis.upload(mUploadOpt);
 			return false;
 		}
-		var html = '<input type="file" class="standart_input mUpload" '+((mUploadOpt.max_files > 1)?'multiple':'')+' name="'+mUploadOpt.name+'" />';
+		var html = '<input type="file" class="standart_input mUpload" '+((mUploadOpt.maxFiles > 1)?'multiple':'')+' name="'+mUploadOpt.name+'" />';
 		html += '<div class="m_progressbar_container" style="display:none;">'
 			html += '<div class="progressbar"><div class="track"></div></div>';
 			html += '<div class="m_cancel'+ ((opt.cancelClass)?' '+opt.cancelClass:'') +'" onclick="return mjsa.mUploadForm(\''+selector+'\',undefined,{cancel:true})">';
@@ -597,66 +596,66 @@ var mjsa = new (function ($){
 	};	
 	/* HTML 5 upload files: used FormData
 	var options = {
-		input_file : '#uploadfile',
+		inputFile : '#uploadfile',
 		url: '/auth/upload_profile_photo',
 		name: 'thefiles',
 		params: {},
-		unsupport: function(){alert('Browser is deprecated and not support');},
-		before_call: function(files){}, // return false to cancel upload
-		pre_call: function(files){}, 
-		process_call: function(e,obj){},
-		after_call: function(obj){},
-		success_call: function(obj,response){},
-		error_call: function(obj){},
-		max_size: 823000,
-		max_size_exception: function(file){},
-		max_files: 15,
-		one_file_simple: false,
-		max_files_exception: function(file){},
-		allow_ext: ['jpg','jpeg','png','gif'],
-		allow_ext_exception: function(file){}
+		callUnsupported: function(){alert('Browser is deprecated and not support');},
+		callBefore: function(files){}, // return false to cancel upload
+		callPre: function(files){}, 
+		callProcess: function(e,obj){},
+		callAfter: function(obj){},
+		callSuccess: function(obj,response){},
+		callError: function(obj){},
+		maxSize: 823000,
+		maxSizeException: function(file){},
+		oneFileSimple: false,
+		maxFiles: 15,
+		maxFilesException: function(file){},
+		allowExt: ['jpg','jpeg','png','gif'],
+		allowExtException: function(file){}
 	}; */
 	this.upload = function(opt){
 		// TODO: upload drag and drop
 		opt = opt || {};
 		var http = null;
 		opt.url = opt.url || '/upload';
-		if (opt.input_file !== undefined){
+		if (opt.inputFile !== undefined){
 			if (opt.action === 'cancel'){
-				http = $(opt.input_file).data('http');
-				$(opt.input_file).val('');
+				http = $(opt.inputFile).data('http');
+				$(opt.inputFile).val('');
 				http && http.abort(); 
-				opt.after_call && opt.after_call();
+				opt.callAfter && opt.callAfter();
 				return false;
 			}
-			$(opt.input_file).on('change',function(event){
+			$(opt.inputFile).on('change',function(event){
 				var files_info = $(this)[0].files;
 				if (files_info === undefined || window.FormData === undefined) {
-					if (opt.unsupport) opt.unsupport();
-					else mthis.print_error('Browser is deprecated and not supported');
+					if (opt.callUnsupported) opt.callUnsupported();
+					else mthis.printError('Browser is deprecated and not supported');
 				}
 				if (!files_info.length) return false;
 				http = mthis._upload(files_info,opt);
-				$(opt.input_file).data('http',http);
+				$(opt.inputFile).data('http',http);
 			});
 		}
 		return http; 
 	};
 	this._upload = function(files_info,opt){
-		if (opt.before_call && !opt.before_call(files_info)) return false;
+		if (opt.callBefore && !opt.callBefore(files_info)) return false;
 		var files = [];
 		for (var i = 0; i < files_info.length; i++) {
-			if (opt.max_size && files_info[i].size && files_info[i].name && files_info[i].size > opt.max_size){
-				if (opt.max_size_exception) opt.max_size_exception(files_info[i]);
-				else mthis.print_error('File '+ files_info[i].name + ' is too large. Max file size is '+ parseInt(opt.max_size /1024) + ' KB.');
+			if (opt.maxSize && files_info[i].size && files_info[i].name && files_info[i].size > opt.maxSize){
+				if (opt.maxSizeException) opt.maxSizeException(files_info[i]);
+				else mthis.printError('File '+ files_info[i].name + ' is too large. Max file size is '+ parseInt(opt.maxSize /1024) + ' KB.');
 				continue;
-			} else if ((opt.allow_ext && files_info[i].name) 
-				&& (!mthis.inArray(files_info[i].name.slice(files_info[i].name.lastIndexOf('.')+1).toLowerCase(), opt.allow_ext))){
-					if (opt.allow_ext_exception) opt.allow_ext_exception(files_info[i]);
-					else mthis.print_error('File '+ files_info[i].name + ' is not allowed');
-			} else if (opt.max_files && files.length >= opt.max_files){
-				if (opt.max_files_exception) opt.max_files_exception(files_info[i]);
-				else mthis.print_error('File '+ files_info[i].name + ' is not to be upload. Max files to upload is '+opt.max_files+' .' );
+			} else if ((opt.allowExt && files_info[i].name) 
+				&& (!mthis.inArray(files_info[i].name.slice(files_info[i].name.lastIndexOf('.')+1).toLowerCase(), opt.allowExt))){
+					if (opt.allowExtException) opt.allowExtException(files_info[i]);
+					else mthis.printError('File '+ files_info[i].name + ' is not allowed');
+			} else if (opt.maxFiles && files.length >= opt.maxFiles){
+				if (opt.maxFilesException) opt.maxFilesException(files_info[i]);
+				else mthis.printError('File '+ files_info[i].name + ' is not to be upload. Max files to upload is '+opt.maxFiles+' .' );
 			} else {
 				files.push(files_info[i]);
 			}
@@ -665,15 +664,15 @@ var mjsa = new (function ($){
 		var http = new XMLHttpRequest();
 		if (http.upload && http.upload.addEventListener) {
 			http.upload.addEventListener('progress',function(e) {
-				if (e.lengthComputable && opt.process_call) opt.process_call(e,{loaded:e.loaded, total:e.total});
+				if (e.lengthComputable && opt.callProcess) opt.callProcess(e,{loaded:e.loaded, total:e.total});
 			},false);
 			http.onreadystatechange = function () {
 				if (this.readyState == 4) {
-					opt.after_call && opt.after_call(this);
+					opt.callAfter && opt.callAfter(this);
 					if(this.status == 200) {
-						opt.success_call && opt.success_call(this,this.response);
+						opt.callSuccess && opt.callSuccess(this,this.response);
 					} else {
-						opt.error_call && opt.error_call(this);
+						opt.callError && opt.callError(this);
 					}
 				}
 			};
@@ -681,7 +680,7 @@ var mjsa = new (function ($){
 				// Событие после которого также можно сообщить о загрузке файлов.// Но ответа с сервера уже не будет.// Можно удалить.
 			});
 			http.upload.addEventListener('error',function(e) {
-				opt.error_call && opt.error_call(this);
+				opt.callError && opt.callError(this);
 				console.log('m_error'); console.log(e); // Паникуем, если возникла ошибка!
 			});
 		}
@@ -692,61 +691,61 @@ var mjsa = new (function ($){
 		}
 		if (!opt.name) opt.name = 'thefiles';
 		for (var i = 0; i < files.length; i++) {
-			form.append(opt.name+((opt.one_file_simple)?'':'[]'), files[i]);
+			form.append(opt.name+((opt.oneFileSimple)?'':'[]'), files[i]);
 		}
-		if (opt.pre_call) opt.pre_call(files);
+		if (opt.callPre) opt.callPre(files);
 		http.open('POST', opt.url);
 		http.send(form);
 		return http;
 	};
 	
 	// GPS Location
-	this._geoLocationDefCall = function(position){
+	this._callGeoLocationDef = function(position){
 		mthis.debug(position);
-		mthis.debug_param(position);
+		mthis.debugParam(position);
 	};
 	// options = {
 	//	timeout: 60000//milliseconds
-	//	noLocationCall: function(){} // unavailable get Location
-	//	notSupportCall: function(){} 
-	//	accessDeniedCall: function(){} //
-	//	unavailablePosCall: function(){}
-	//	timeoutCall: function(){}
+	//	callNoLocation: function(){} // unavailable get Location
+	//	callUnsupported: function(){} 
+	//	callAccessDenied: function(){} //
+	//	callUnavailablePosition: function(){}
+	//	callTimeout: function(){}
 	//}
 	this.geoLocation = function(func,options){
 		options = options || {};
-		func = func || mthis._geoLocationDefCall;
+		func = func || mthis._callGeoLocationDef;
 		options.timeout = options.timeout || 60000;
 		if(!navigator.geolocation){
-			options.notSupportCall && options.notSupportCall();
-			options.noLocationCall && options.noLocationCall();
+			options.callUnsupported && options.callUnsupported();
+			options.callNoLocation && options.callNoLocation();
 			return false;
 		}
 		navigator.geolocation.getCurrentPosition(
 			func, function(err){
 				mthis.def.testing && mthis.debug(err);
 				if(err.code === 1) {
-					options.accessDeniedCall && options.accessDeniedCall();
+					options.callAccessDenied && options.callAccessDenied();
 				}else if(err.code === 2) {
-					options.unavailablePosCall && options.unavailablePosCall();
+					options.callUnavailablePosition && options.callUnavailablePosition();
 				}else if(err.code === 3) {
-					options.timeoutCall && options.timeoutCall();
+					options.callTimeout && options.callTimeout();
 				}
-				options.noLocationCall && options.noLocationCall();
+				options.callNoLocation && options.callNoLocation();
 			},options
 		);
 		return false;
 	};
 
 	/* LocalStorage and SessionStorage
-	opt = {local: true, clear:true, unsupportCall: function(){}} */
+	opt = {local: true, clear:true, callUnsupported: function(){}} */
 	this.webStorage = function(opt,key,value){
 		opt = opt || {};
 		var storeType = undefined;
 		if (opt.local) storeType = window.localStorage;
 		else storeType = window.sessionStorage;
 		if (!storeType){
-			opt.unsupportCall && opt.unsupportCall();
+			opt.callUnsupported && opt.callUnsupported();
 			return false;
 		}
 		if (opt.clear) {
@@ -855,12 +854,12 @@ var mjsa = new (function ($){
 	/* 
 	opt = {
 		once: false, 
-		to_selector: '#to',
+		toSelector: '#to',
 		url: '/ajax/autocomlete'
 		param: {}, 
 		collect: '.ac_param', 
 		minchars: 3
-		call_before: function(param,el,keyup_event){
+		callBefore: function(param,el,keyup_event){
 			if (param.query.length < 3) {clear(); return false;}
 			if (iWantAddParam){
 				param.newparam = 'myvalue';
@@ -868,13 +867,13 @@ var mjsa = new (function ($){
 			}
 			return true;
 		}, some user interception
-		call_after: function(param,response)
+		callAfter: function(param,response)
 	}
 	*/
 	//[beta]
 	this.autocomplete = function(input_selector,options){
 		var defOpt = {
-			to_selector: '#test',
+			toSelector: '#test',
 			itemSelector: '.item',
 			queryAttr:'data-value',
 			selectedClass: 'selected',
@@ -897,9 +896,9 @@ var mjsa = new (function ($){
 				if (e.keyCode===38 || e.keyCode===40){ // up key: select previos item
 					var borderSel = ':last';
 					if (e.keyCode===40) borderSel = ':first'; //key down
-					var $selected = $(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass);
+					var $selected = $(opt.toSelector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass);
 					if (!$selected.length){
-						$selected = $(opt.to_selector).find(opt.itemSelector+borderSel).addClass(opt.selectedClass);
+						$selected = $(opt.toSelector).find(opt.itemSelector+borderSel).addClass(opt.selectedClass);
 						$(this).attr(opt.queryAttr,$(this).val());
 						$(this).val($selected.attr(opt.queryAttr)||$(this).val());
 					} else {
@@ -911,11 +910,11 @@ var mjsa = new (function ($){
 							$(this).val($selected.attr(opt.queryAttr)||$(this).val());
 						}
 					}
-					opt.call_choose && opt.call_choose($selected,opt);
-					if(opt.call_scroller) { opt.call_scroller($selected,opt); 
+					opt.callChoose && opt.callChoose($selected,opt);
+					if(opt.callScroller) { opt.callScroller($selected,opt); 
 					} else {
 						if (opt.scrollerSelector){
-							var $scroller = $(opt.to_selector).find(opt.scrollerSelector);
+							var $scroller = $(opt.toSelector).find(opt.scrollerSelector);
 							if ($selected.length && opt.scrollerSelector){
 								var contentHeight = $scroller[0].scrollHeight;
 								var scrollTop = $scroller.scrollTop();
@@ -943,11 +942,11 @@ var mjsa = new (function ($){
 			// Interception up, down,enter, escape keys
 			if (e.keyCode && (e.keyCode===38 || e.keyCode===40 || e.keyCode===13 || e.keyCode===27)){
 				if (e.keyCode===13){ // enter key: select item, event click, and hide autocomplete
-					$(opt.to_selector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass).click();
-					$(opt.to_selector).html('').hide();
+					$(opt.toSelector).find(opt.itemSelector+'.'+opt.selectedClass).removeClass(opt.selectedClass).click();
+					$(opt.toSelector).html('').hide();
 				}
 				if (e.keyCode===27){ // escape key, hide autocompleate
-					$(opt.to_selector).html('').hide();
+					$(opt.toSelector).html('').hide();
 				}
 				e.preventDefault();
 				e.stopImmediatePropagation();
@@ -965,12 +964,12 @@ var mjsa = new (function ($){
 				opt.param.query = $(self).val();
 				if (opt.minchars){
 					if (opt.param.query.length < opt.minchars){
-						$(opt.to_selector).html('').hide();
+						$(opt.toSelector).html('').hide();
 						return false;
 					}
 				}
-				if (opt.call_before !== undefined) {
-					var ret = opt.call_before(opt.param,self,e);
+				if (opt.callBefore !== undefined) {
+					var ret = opt.callBefore(opt.param,self,e);
 					if (ret === false) return false;
 					if (ret.query !== undefined) opt.param = ret;
 				}
@@ -979,8 +978,8 @@ var mjsa = new (function ($){
 					try {
 						var obj = JSON.parse(data);
 						if (obj.query === last_query) {
-							if (opt.call_after === undefined || opt.call_after(opt.param,self,data) !== false) {
-								$(opt.to_selector).show().html(obj.response);
+							if (opt.callAfter === undefined || opt.callAfter(opt.param,self,data) !== false) {
+								$(opt.toSelector).show().html(obj.response);
 							}
 						}
 					} catch(ex) {
@@ -996,7 +995,7 @@ var mjsa = new (function ($){
 
 	
 	// enterclick activate
-	this._enterClickDefCall = function(){
+	this._callEnterClickDef = function(){
 		eval($(this).attr("data-onclickenter")); return false;
 	};
 	this.onClickEnterInit = function(selector,opt){
@@ -1007,7 +1006,7 @@ var mjsa = new (function ($){
 			if (e.keyCode===13 || e.keyCode===10){
 				if (opt && (opt.ctrl === true) && !e.ctrlKey) return true;
 				if (opt && opt.callback) opt.callback.call(this);
-				else mthis._enterClickDefCall.call(this);
+				else mthis._callEnterClickDef.call(this);
 			}
 			return true;
 		});
@@ -1038,12 +1037,12 @@ mjsa = (function ($){
 			padding_hor: 15,
 			modelName: 'mjsa.scrollPopup', // [versionedit]
 			mainContainer: '#container',
-			loading_image: '/pub/images/loader.gif',
-			close_btn_style: undefined,
-			close_btn_class: undefined,
+			loadingImage: '/pub/images/loader.gif',
+			closeBtnStyle: undefined,
+			closeBtnClass: undefined,
 			zindex: 19,
-			call_open:undefined,
-			call_close:undefined
+			callOpen:undefined,
+			callClose:undefined
 		};
 		var m = {};
 		m.openedSelectors = {};
@@ -1062,22 +1061,22 @@ mjsa = (function ($){
 			str_html += options.selector+' .popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options.zindex+1)+';}';
 			str_html += options.selector+' .popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options.zindex+1)+'; padding: 0 0 20px; min-height:100px; }';
 			str_html += options.selector+' .popup_scroll_body{ position: relative;  padding: 13px '+options.padding_hor+'px 15px; line-height: normal; background:#fff; }';
-			if (options.close_btn_style !== undefined) {
-				str_html += options.selector+' .close_popup_scroll{ '+options.close_btn_style+' }';
+			if (options.closeBtnStyle !== undefined) {
+				str_html += options.selector+' .close_popup_scroll{ '+options.closeBtnStyle+' }';
 			}
 			str_html += options.selector+' .popup_scroll_content{ }';
 			str_html += '</style>';
 			// shadow
 			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
 			// popup container
-			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"><img src="'+options.loading_image+'" alt="loading" style="margin: 0 auto;" /></div>';
+			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"><img src="'+options.loadingImage+'" alt="loading" style="margin: 0 auto;" /></div>';
 			str_html += '<div class="popup_scroll toggle_popup_scroll">';
 				// popup body
 				str_html += '<div class="popup_scroll_body">';
 					// popup close botton
-					if (options.close_btn_style !== undefined) {
+					if (options.closeBtnStyle !== undefined) {
 						str_html += '<div href="#" class="close_popup_scroll';
-						if (options.close_btn_class) str_html += ' '+options.close_btn_class;
+						if (options.closeBtnClass) str_html += ' '+options.closeBtnClass;
 						str_html += '" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
 					}
 					// popup content
@@ -1102,8 +1101,8 @@ mjsa = (function ($){
 			$(options.mainContainer).css('left', ''+left_p1+'px');
 			$(options.selector+' .popup_scroll_shadow').show();
 			options.nowpos = nowpos;
-			if (options.call_open !== undefined) {
-				options.call_open();
+			if (options.callOpen !== undefined) {
+				options.callOpen();
 			}
 			$(selector).data('options',options);
 			return false;
@@ -1182,8 +1181,8 @@ mjsa = (function ($){
 			$(options.mainContainer).css('top', 'auto');
 			$(options.mainContainer).css('left', 'auto');
 			$("html,body").scrollTop(options.nowpos);
-			if (options.call_close !== undefined) {
-				options.call_close();
+			if (options.callClose !== undefined) {
+				options.callClose();
 			}
 			$(selector + ' .popup_scroll_content').html('');
 			m.openedSelectors[selector] = undefined;
@@ -1218,3 +1217,5 @@ mjsa = (function ($){
 }).call(mjsa,jQuery);
 
 // ***** END DEPRECATED ADDON *****
+
+
