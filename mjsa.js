@@ -3,7 +3,7 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.8.0.91
+	v0.8.1.92
 	Last Mod: 2014-06-08 20:00
 */
 var mjsa = new (function ($){
@@ -149,15 +149,20 @@ var mjsa = new (function ($){
 	};
 	
 	// scroll to value in pixels or to selector
-	this.scrollTo = function(value,timer){
-		if(timer === undefined )timer = 500;
+	this.scrollTo = function(value,opt){
+		opt = opt || {};
+		if(opt.timer === undefined )opt.timer = 500;
 		var item =  $("html,body");
+		if (value === undefined){
+			return $(window).scrollTop();
+		}
 		if(typeof(value)==="number")  {
-			item.animate({scrollTop: value},timer);
+			item.animate({scrollTop: value},opt.timer);
 		} else {
 			if (!$(value).length) return false;
 			var sct = $(value).offset().top;
-			item.animate({scrollTop: sct},timer);
+			if (opt.offset) sct += opt.offset;
+			item.animate({scrollTop: sct},opt.timer);
 		}
 		return false;
 	};
@@ -333,8 +338,9 @@ var mjsa = new (function ($){
 		}
 		if (opt.pushonly) {
 			if (!mthis.currentPathname === link){
+				history.replaceState({url:mthis.currentPathname,title:$('title').html(),scroll:mthis.scrollTo()}, $('title').html(), mthis.currentPathname);
+				history.pushState({url:link,title:$('title').html(),scroll:0}, $('title').html(), link);
 				mthis.currentPathname = link;
-				history.pushState({url:link,title:$('title').html()}, $('title').html(), link);
 			}
 			return false;
 		}
@@ -351,13 +357,17 @@ var mjsa = new (function ($){
 					if ((content_separated.length > 1)) { //  && (content.indexOf('<redirect_separator/>') === -1) [edit] something wrong with redirect 
 														// [hint] redirect released on server side
 						if (mthis.currentPathname === link) opt.nopush = true;
-						mthis.currentPathname = link;
 						if(!opt.nopush){
-							history.pushState({url:link,title:content_separated[0]}, content_separated[0], link);
+							history.replaceState({url:mthis.currentPathname,title:$('title').html(),scroll:mthis.scrollTo()}, $('title').html(), mthis.currentPathname);
+							history.pushState({url:link,title:content_separated[0],scroll:0}, content_separated[0], link);
 							if (!opt.noscroll) mthis.scrollTo(0);
 							document.title = content_separated[0];
 						}
+						mthis.currentPathname = link;
 						mthis.html(mthis.def.bodyAjax_inselector,content_separated[1]);
+						if (opt.scrollto !== undefined){
+							mthis.scrollTo(opt.scrollto,0);
+						}
 						if (mthis.def.bodyAjaxOnloadFunc){
 							mthis.def.bodyAjaxOnloadFunc();
 						}
@@ -395,7 +405,7 @@ var mjsa = new (function ($){
 			window.addEventListener("popstate", function(e) {
 				//alert(location.pathname+location.search +' - '+mthis.currentPathname);
 				if (location.pathname+location.search !== mthis.currentPathname){
-					mthis.bodyAjax(location.pathname+location.search,{nopush:true});//(e.url); not working :(
+					mthis.bodyAjax(location.pathname+location.search,{nopush:true,scrollto:e.state.scroll});//(e.url); not working :(
 				}
 				e.preventDefault();
 			}, false);
@@ -587,7 +597,7 @@ var mjsa = new (function ($){
 		html += '<div class="m_progressbar_container" style="display:none;">'
 			html += '<div class="progressbar"><div class="track"></div></div>';
 			html += '<div class="m_cancel'+ ((opt.cancelClass)?' '+opt.cancelClass:'') +'" onclick="return mjsa.mUploadForm(\''+selector+'\',undefined,{cancel:true})">';
-				html += opt.cancelText || 'Cancel';
+				html += opt.cancelText || 'Отмена';
 			html += '</div><div class="counter_text"></div>';
 		html += '</div>';
 		$(selector).html(html);
@@ -1217,5 +1227,4 @@ mjsa = (function ($){
 }).call(mjsa,jQuery);
 
 // ***** END DEPRECATED ADDON *****
-
 
