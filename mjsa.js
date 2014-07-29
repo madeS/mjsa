@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.8.1.92
-	Last Mod: 2014-06-08 20:00
+	v0.8.1.93
+	Last Mod: 2014-07-29 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -597,7 +597,7 @@ var mjsa = new (function ($){
 		html += '<div class="m_progressbar_container" style="display:none;">'
 			html += '<div class="progressbar"><div class="track"></div></div>';
 			html += '<div class="m_cancel'+ ((opt.cancelClass)?' '+opt.cancelClass:'') +'" onclick="return mjsa.mUploadForm(\''+selector+'\',undefined,{cancel:true})">';
-				html += opt.cancelText || 'Отмена';
+				html += opt.cancelText || 'Cancel';
 			html += '</div><div class="counter_text"></div>';
 		html += '</div>';
 		$(selector).html(html);
@@ -1227,4 +1227,3 @@ mjsa = (function ($){
 }).call(mjsa,jQuery);
 
 // ***** END DEPRECATED ADDON *****
-
