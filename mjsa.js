@@ -3,17 +3,16 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v0.8.1.93
-	Last Mod: 2014-07-29 20:00
+	v1.0.0.97
+	Last Mod: 2014-09-08 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
 	// Defaults variables
 	this.def = {
 		testing: false,
-		appMeetVersion: 700, // old application not supported
 		service: '#m_service', // class for executing server JS
-		bodyAjax: true,  //true, // set false for old application, and for not support body ajax server side
+		bodyAjax: false, 
 		bodyAjax_inselector: '#body_cont',  //body, 
 		bodyAjax_timeout: 5000,
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
@@ -41,8 +40,7 @@ var mjsa = new (function ($){
 			closeClass: 'ficon-cancel',
 			hintLiveMs: 10000
 		},
-		htmlInterception: undefined,
-		test: 'test'
+		htmlInterception: undefined
 	};
 	
 	this.copy = function(obj){ return JSON.parse(JSON.stringify(obj)); };
@@ -58,27 +56,29 @@ var mjsa = new (function ($){
 	this._createHintsContainer = function(){ 
 		$('body').append('<div class="'+mthis.def.hints.containerClass+'"></div>');
 	};
-	this.printHint = function(hint,className,permanent){
-		if (mthis.def.hints.containerClass){
+	this.printHint = function(hint,className,opt){
+		opt = opt || {};
+		if (mthis.def.hints.call && !mthis.def.hints.call(hint,className)){
+			// do nothing
+		} else if (mthis.def.hints.containerClass){
 			if (!className) className = mthis.def.hints.simpleClass;
 			var ms = new Date(); var ms_time = ms.getTime();
 			if ($('.'+mthis.def.hints.containerClass).length===0) mthis._createHintsContainer();
 			$('.'+mthis.def.hints.containerClass).append(
 					'<div class="hintwrap hint'+ms_time+'"><div class="'+mthis.def.hints.mainClass+' '+className+'">'+hint+'<span class="close '+mthis.def.hints.closeClass+'" onclick="$(this).parents(\'.hintwrap\').remove();" ></span></div></div>');
 			$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time).animate({height: "show"}, 300);
-			if (!permanent){
+			if (!opt.permanent){
 				window.setTimeout(function(){
 					$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time+'')
 						.animate({height: "hide"},{duration:300,done:function(){$(this).remove();}});
-				}, mthis.def.hints.hintLiveMs);
+				}, opt.live || mthis.def.hints.hintLiveMs);
 			}
 		}
-		mthis.def.hints.call && mthis.def.hints.call(hint);
 		return false;
 	};
 	
 	this.print_r = function(arr, level, maxlevel){
-		if (!maxlevel) maxlevel = 5;
+		if (!maxlevel) maxlevel = 3;
 		if (level >= maxlevel) return '';
 		var print_red_text = "";
 		if (!level) level = 0;
@@ -98,11 +98,6 @@ var mjsa = new (function ($){
 	this.debugParam = function(e){alert(this.print_r(e));};
 	this.debug = function(e){console.log('debugging:',e);};
 
-	// *** selectable support ***
-	this.jSelected = undefined;
-	this.s = function(selector){mthis.jSelected = $(selector); return mthis;};
-	
-	
 	// *** intervalStack module - easy stand alone interval timer
 	this._intervalStackHandlers = [];
 	this.intervalStackAdd = function(func,timer){
@@ -178,20 +173,16 @@ var mjsa = new (function ($){
 			}
 			return data;
 		} else {
-			url = url || '';
+			url = (url)? url+'?' : '';
 			var paramStr = [];
 			for(var key in params){
 				if (params[key] !== ''){
 					paramStr.push(key+'='+encodeURIComponent(params[key]));
 				}
 			}
-			return url+'?'+paramStr.join('&');
+			return url+paramStr.join('&');
 		}
 	};
-	this.loadImg = function(src,selector){
-		// [TODO]
-		//$("<img/>").attr("src", src);
-	}
 	
 	// for js
 	this.getPosition = function(e){
@@ -248,6 +239,19 @@ var mjsa = new (function ($){
 			el = $(selector+'[name='+key+'],'+selector+'[data-name='+key+']');
 			if ((el.attr('type') === 'text') || el.is('textarea')) el.val(collected[key]);
 			if (el.is('.take_html, [data-take=html]')) el.html(collected[key]);
+			if (el.attr('type') === 'radio') el.filter('[value="'+collected[key]+'"]').prop('checked',true);
+			if (el.attr('type') === 'checkbox') {
+				el.prop('checked',false);
+				if ((''+collected[key]).indexOf(';')=== -1){
+					 parseInt(collected[key]) && el.prop('checked',true);
+				}else{
+					var vals = (''+collected[key]).split(';');
+					for(var ckey in vals){
+						el.filter('[data-value="'+vals[ckey]+'"]').prop('checked',true);
+					}
+				}
+			}
+			if (el.is('select')) el.find('[value="'+collected[key]+'"]').prop('selected',true);
 		}
 	};
 	// easilyPostAjax
@@ -324,16 +328,11 @@ var mjsa = new (function ($){
 		opt = opt || {};
 		if (opt.callBefore && !opt.callBefore(link,opt)) return false;
 		var noajax = false; if (opt && opt.el) noajax = $(opt.el).attr('noajax');
-		if ((link.indexOf('http') === 0) || !(window.history && history.pushState) || (noajax)) {
-			if (mthis.def.testing) { //[testing]
-				mthis.debug('not support window.history or full link: '+link+'history:'+window.history);
-				console.log('link:',link,'history:',window.history);
+		if ((link.indexOf('http') === 0) || !(window.history && history.pushState) || (noajax) || !$(mthis.def.bodyAjax_inselector).length) {
+			if (mthis.def.testing) {
+				console.log('bodyAjax skiped(link: ',link,', history:',window.history,', noajax',noajax, 'in_selector',$(mthis.def.bodyAjax_inselector).length);
 			}
 			if (document.location.href === link) {document.location.reload(); return false;}
-			document.location.href = link; return false;
-		}
-		if (!$(mthis.def.bodyAjax_inselector).length){
-			mthis.def.testing && alert('container not found'); // [testing]
 			document.location.href = link; return false;
 		}
 		if (opt.pushonly) {
@@ -361,8 +360,8 @@ var mjsa = new (function ($){
 							history.replaceState({url:mthis.currentPathname,title:$('title').html(),scroll:mthis.scrollTo()}, $('title').html(), mthis.currentPathname);
 							history.pushState({url:link,title:content_separated[0],scroll:0}, content_separated[0], link);
 							if (!opt.noscroll) mthis.scrollTo(0);
-							document.title = content_separated[0];
 						}
+						document.title = content_separated[0];
 						mthis.currentPathname = link;
 						mthis.html(mthis.def.bodyAjax_inselector,content_separated[1]);
 						if (opt.scrollto !== undefined){
@@ -391,10 +390,7 @@ var mjsa = new (function ($){
 	this.currentPathname = '';
 	this.bodyAjaxInit = function(selector){
 		if (!selector) selector = 'a';
-		if(!mthis.def.bodyAjax) {
-			mthis.printError('"Html 5 Body Ajax" disabled in MJS settings');
-			return false;
-		}
+		mthis.def.bodyAjax = true; // set on bodyAjax in location
 		$(document).on('click', selector, function(){
 			if (($(this).attr('href') !== '#'))
 				mthis.bodyAjax($(this).attr('href'),{el:this});
@@ -414,17 +410,7 @@ var mjsa = new (function ($){
 	};
 
 	// changing url brawser string, support bodyAjax
-	this.location = function(link,opt){
-		if (opt && opt.hash) {
-			var addressString = document.location.href;
-			if (addressString.indexOf("#",0) !== 1 ) {
-				addressString = addressString.replace(new RegExp("(#[^#]*)", "i"), link);
-			} else {
-				link = addressString + link;
-			}
-			document.location.href = link;
-			return false;
-		}
+	this.location = function(link){
 		if (mthis.def.bodyAjax) {
 			mthis.bodyAjax(link);
 		} else {
@@ -470,7 +456,7 @@ var mjsa = new (function ($){
 				alert(content_separated[1]);
 			}
 		}
-		if (content.indexOf('<html_replace_separator/>') !== -1) { //[test]
+		if (content.indexOf('<html_replace_separator/>') !== -1) {
 			content_separated = content.split('<html_replace_separator/>');
 			for(i = 1; i < content_separated.length; i++) {
 				if (i%2){ 
@@ -479,7 +465,7 @@ var mjsa = new (function ($){
 				}
 			}
 		}
-		if (content.indexOf('<html_append_separator/>') !== -1) { // [test]
+		if (content.indexOf('<html_append_separator/>') !== -1) {
 			content_separated = content.split('<html_append_separator/>');
 			for(i = 1; i < content_separated.length; i++) {
 				if (i%2){ 
@@ -488,7 +474,7 @@ var mjsa = new (function ($){
 				}
 			}
 		}
-		if (content.indexOf('<html_prepend_separator/>') !== -1) { //[test]
+		if (content.indexOf('<html_prepend_separator/>') !== -1) {
 			content_separated = content.split('<html_prepend_separator/>');
 			for(i = 1; i < content_separated.length; i++) {
 				if (i%2){ 
@@ -690,12 +676,13 @@ var mjsa = new (function ($){
 				// Событие после которого также можно сообщить о загрузке файлов.// Но ответа с сервера уже не будет.// Можно удалить.
 			});
 			http.upload.addEventListener('error',function(e) {
+				opt.callAfter && opt.callAfter(this);
 				opt.callError && opt.callError(this);
 				console.log('m_error'); console.log(e); // Паникуем, если возникла ошибка!
 			});
 		}
 		var form = new FormData(); 
-		form.append('path', '/');
+		//form.append('path', location.href);
 		if (opt.params){
 			for (var key in opt.params) form.append(key, opt.params[key]);
 		}
@@ -762,15 +749,28 @@ var mjsa = new (function ($){
 			storeType.clear();
 			return false;
 		}
-		if (!key) return false;
+		if (key===undefined) return false;
 		if (value===undefined){
-			return storeType.getItem(key);
+			var ret, ret_json_maybe = storeType.getItem(key);
+			if (ret_json_maybe){
+				try{
+					ret = JSON.parse(ret_json_maybe);
+				} catch(e){
+					ret = ret_json_maybe;
+				}
+			}
+			return ret;
 		}
 		if (value===null){
 			storeType.removeItem(key);
 			return false;
 		}
-		storeType.setItem(key,value);
+		if (typeof value === 'object'){
+			storeType.setItem(key,JSON.stringify(value));
+		} else {
+			storeType.setItem(key,value);
+		}
+		
 		return false;
 	};
 	
@@ -814,7 +814,6 @@ var mjsa = new (function ($){
 		}
 		
 	};
-	
 	this.selected = function(opt){
 		opt = opt || {};
 		var w = opt.window || window;
@@ -834,6 +833,29 @@ var mjsa = new (function ($){
 		}
 		
 		return sel;
+	};
+	this.textSelected = function(selector,opt){ // Thanks http://forum.php.su/topic.php?forum=46&topic=13
+		opt = opt || {};
+		var $sel = $(selector).filter('input,textarea');
+		if (!$sel.length) { console.log('selector not found'); return false; }
+		var elem = $sel.get(0);
+		var selText = ''; 
+		if (elem.selectionStart !== undefined) { 
+			selText = elem.value.substring(elem.selectionStart, elem.selectionEnd);
+			if (opt.replace && selText !== ''){
+				selText = opt.replace(selText);
+				elem.value = elem.value.substring(0,elem.selectionStart) + selText + elem.value.substring(elem.selectionEnd);
+			}
+		} else { // IE
+			var textRange = document.selection.createRange ();
+			selText = textRange.text;
+			if (opt.replace  && selText !== ''){
+				selText = opt.replace(selText);
+				var rangeParent = textRange.parentElement ();
+				if (rangeParent === elem){textRange.text = selText;}
+			}
+		}
+		return selText;
 	};
 	this.getTimezone = function(){ // Thanks http://paperplane.su/php-timezone/
 		var now = new Date(); 
@@ -866,21 +888,21 @@ var mjsa = new (function ($){
 		once: false, 
 		toSelector: '#to',
 		url: '/ajax/autocomlete'
-		param: {}, 
+		params: {}, 
 		collect: '.ac_param', 
 		minchars: 3
-		callBefore: function(param,el,keyup_event){
-			if (param.query.length < 3) {clear(); return false;}
+		dataType: 'jsonp'
+		callBefore: function(params,el,keyup_event){
+			if (params.query.length < 3) {clear(); return false;}
 			if (iWantAddParam){
-				param.newparam = 'myvalue';
-				return param;
+				params.newparam = 'myvalue';
+				return params;
 			}
 			return true;
 		}, some user interception
 		callAfter: function(param,response)
 	}
 	*/
-	//[beta]
 	this.autocomplete = function(input_selector,options){
 		var defOpt = {
 			toSelector: '#test',
@@ -888,13 +910,19 @@ var mjsa = new (function ($){
 			queryAttr:'data-value',
 			selectedClass: 'selected',
 			url: '/default/autocomplete',
-			param: undefined,// aditional POST params as default
-			collect: undefined, // collect values to param
+			params: undefined,// aditional POST params as default
+			collect: undefined, // collect values to params
 			minchars: 2,
 			once: undefined, // init for one time only
 			scrollerSelector: undefined
 		};
 		var opt = $.extend(mthis.copy(defOpt), options || {});
+		
+		if (opt.crossDomain){
+			opt.crossDomain = { crossDomain: true, dataType:'jsonp'};
+		} else {
+			opt.crossDomain = {};
+		}
 		
 		var hndlr = null;
 		var last_query = '';
@@ -921,7 +949,8 @@ var mjsa = new (function ($){
 						}
 					}
 					opt.callChoose && opt.callChoose($selected,opt);
-					if(opt.callScroller) { opt.callScroller($selected,opt); 
+					if(opt.callScroller) { 
+						opt.callScroller($selected,opt); 
 					} else {
 						if (opt.scrollerSelector){
 							var $scroller = $(opt.toSelector).find(opt.scrollerSelector);
@@ -962,41 +991,43 @@ var mjsa = new (function ($){
 				e.stopImmediatePropagation();
 				return false;
 			}
-			opt.param = opt.param || {};
+			opt.params = opt.params || {};
 			opt.url = opt.url || '';
 			var self = this;
 			if (hndlr) clearTimeout(hndlr);
 			hndlr = setTimeout(function() {
 				clearTimeout(hndlr); //?
 				if (opt.collect){
-					opt.param = $.extend(opt.param,mthis.collectParams(opt.collect));
+					opt.params = $.extend(opt.params,mthis.collectParams(opt.collect));
 				}
-				opt.param.query = $(self).val();
+				opt.params.query = $(self).val();
 				if (opt.minchars){
-					if (opt.param.query.length < opt.minchars){
+					if (opt.params.query.length < opt.minchars){
 						$(opt.toSelector).html('').hide();
 						return false;
 					}
 				}
 				if (opt.callBefore !== undefined) {
-					var ret = opt.callBefore(opt.param,self,e);
+					var ret = opt.callBefore(opt.params,self,e);
 					if (ret === false) return false;
-					if (ret.query !== undefined) opt.param = ret;
+					if (ret.query !== undefined) opt.params = ret;
 				}
-				last_query = opt.param.query;
-				$.post(opt.url, opt.param, function(data) {
+				last_query = opt.params.query;
+				$(self).attr(opt.queryAttr,last_query);
+				$.ajax($.extend({url:opt.url, data:opt.params, type: opt.ajaxType || "POST", dataType: opt.dataType || "html", 
+				success:function(data) {
 					try {
-						var obj = JSON.parse(data);
+						var obj = (typeof data === 'object') ? data : JSON.parse(data);
 						if (obj.query === last_query) {
-							if (opt.callAfter === undefined || opt.callAfter(opt.param,self,data) !== false) {
+							if (opt.callAfter === undefined || opt.callAfter(opt.params,self,data) !== false) {
 								$(opt.toSelector).show().html(obj.response);
 							}
 						}
 					} catch(ex) {
-						console.log('search error: response is ="'+data+'"');
+						console.log('search error: response is:',data);
 					}
-					hndlr = false; //?
-				});
+					hndlr = false;
+				}},opt.crossDomain));
 			}, 400);
 			return true;
 		});
@@ -1004,24 +1035,18 @@ var mjsa = new (function ($){
 	};
 
 	
-	// enterclick activate
-	this._callEnterClickDef = function(){
-		eval($(this).attr("data-onclickenter")); return false;
-	};
 	this.onClickEnterInit = function(selector,opt){
 		var jDoc = document, jSel = selector;
 		if (opt && opt.once) { jDoc = selector; jSel = undefined;}
-		$(jDoc).on('keypress', jSel, function(e) { // TODO: keyup, or keydown
+		$(jDoc).on('keypress', jSel, function(e) {
 			e = e || window.event;
 			if (e.keyCode===13 || e.keyCode===10){
 				if (opt && (opt.ctrl === true) && !e.ctrlKey) return true;
 				if (opt && opt.callback) opt.callback.call(this);
-				else mthis._callEnterClickDef.call(this);
 			}
 			return true;
 		});
 	};
-	//[experemental]
 	this.getByteLength = function(str){ 
 		return encodeURIComponent(str).replace(/%../g, 'x').length;
 	};
@@ -1045,6 +1070,7 @@ mjsa = (function ($){
 			width: 600,
 			top: 100,
 			padding_hor: 15,
+			padding_ver: 15,
 			modelName: 'mjsa.scrollPopup', // [versionedit]
 			mainContainer: '#container',
 			loadingImage: '/pub/images/loader.gif',
@@ -1061,7 +1087,12 @@ mjsa = (function ($){
 				if (m.openedSelectors[key]) m.close(key);
 			}
 		};
-		m.getOpened = function(){for(var key in m.openedSelectors){if (m.openedSelectors[key]) return key;}};
+		m.getOpened = function(){
+			for(var key in m.openedSelectors){
+				if (m.openedSelectors[key]) return key;
+			} 
+			return undefined;
+		};
 		// [TODO:]
 		// 1)add support escape button to close opened popups
 		m._createPopup = function(options){
@@ -1070,7 +1101,7 @@ mjsa = (function ($){
 			str_html += options.selector+' .popup_scroll_shadow{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6; z-index: '+options.zindex+';}';
 			str_html += options.selector+' .popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options.zindex+1)+';}';
 			str_html += options.selector+' .popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options.zindex+1)+'; padding: 0 0 20px; min-height:100px; }';
-			str_html += options.selector+' .popup_scroll_body{ position: relative;  padding: 13px '+options.padding_hor+'px 15px; line-height: normal; background:#fff; }';
+			str_html += options.selector+' .popup_scroll_body{ position: relative;  padding: '+options.padding_ver+'px '+options.padding_hor+'px; line-height: normal; background:#fff; }';
 			if (options.closeBtnStyle !== undefined) {
 				str_html += options.selector+' .close_popup_scroll{ '+options.closeBtnStyle+' }';
 			}
@@ -1096,23 +1127,32 @@ mjsa = (function ($){
 			$(options.selector).html(str_html);
 			return false;
 		};
-		m._showShadow = function(selector){
+		m._shadow = function(selector,show){
 			var options = $(selector).data('options');
-			var nowpos = self.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop);
-			var con_width = $(options.mainContainer).css('width');
-			var body_width = $('body').css('width');
-			var nowpos1 = parseInt(nowpos);
-			nowpos1+=50;
-			var con_width1 = parseInt(con_width);
-			var body_width1 = parseInt(body_width);
-			var left_p1 = (body_width1 - con_width1)/2;
-			$(options.mainContainer).css('position', 'fixed').css('width','100%');
-			$(options.mainContainer).css('top', '-'+nowpos+'px');
-			$(options.mainContainer).css('left', ''+left_p1+'px');
-			$(options.selector+' .popup_scroll_shadow').show();
-			options.nowpos = nowpos;
-			if (options.callOpen !== undefined) {
-				options.callOpen();
+			if (show) {
+				$(options.selector+' .popup_scroll_shadow').show();
+			} else {
+				$(options.selector+' .popup_scroll_shadow').hide();
+			}
+			if (m.getOpened()) return false;
+			if (show){
+				var nowpos = self.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop);
+				var con_width = $(options.mainContainer).css('width');
+				var body_width = $('body').css('width');
+				var nowpos1 = parseInt(nowpos);
+				nowpos1+=50;
+				var con_width1 = parseInt(con_width);
+				var body_width1 = parseInt(body_width);
+				var left_p1 = (body_width1 - con_width1)/2;
+				$(options.mainContainer).css('position', 'fixed').css('width','100%');
+				$(options.mainContainer).css('top', '-'+nowpos+'px');
+				$(options.mainContainer).css('left', ''+left_p1+'px');
+				options.nowpos = nowpos;
+			} else{
+				$(options.mainContainer).css('position', 'relative');
+				$(options.mainContainer).css('top', 'auto');
+				$(options.mainContainer).css('left', 'auto');
+				$("html,body").scrollTop(options.nowpos);				
 			}
 			$(selector).data('options',options);
 			return false;
@@ -1144,6 +1184,14 @@ mjsa = (function ($){
 			}
 			return false;
 		};
+		m._into = function(selector, data){
+			var options = $(selector).data('options');
+			$(selector + ' .popup_scroll_content').html(data);
+			if (options.callOpen !== undefined) {
+				options.callOpen();
+			}
+			return false;
+		};
 		m.init = function(selector, options){
 			this._createParent(selector);
 			options.selector = selector;
@@ -1153,49 +1201,43 @@ mjsa = (function ($){
 			return false;
 		};
 		m.open = function(selector, url, content){
-			m.openedSelectors[selector] = true;
-			this._showShadow(selector);
+			this._shadow(selector,true);
 			this._loading(selector,true);
-			var thethis = this;
-			if (content !== undefined && content !== '') {
-				this._loading(selector,false);
-				this._showPopup(selector);
-				$(selector + ' .popup_scroll_content').html(content);
-				return false;
-			}
+			m.openedSelectors[selector] = true;
+			var tthis = this;
 			if (url !== undefined) {
 				mthis._ajax({
 					url: url, type: 'GET', data: {}, timeout:mthis.def.bodyAjax_timeout,
 					success:function(data){ 
-						thethis._loading(selector,false);
-						thethis._showPopup(selector);
-						mjsa.html(selector + ' .popup_scroll_content',data);
+						tthis._loading(selector,false);
+						tthis._showPopup(selector);
+						tthis._into(selector,data);
 					},
 					error:function(jqXHR, textStatus, errorThrown){
-						thethis.close(selector);
-						mjsa._defAjaxError(jqXHR, textStatus, errorThrown);
+						tthis.close(selector);
+						mthis._defAjaxError(jqXHR, textStatus, errorThrown);
 					}
 				});
-			} else {
-				this._loading(selector,false);
+			} else if (content !== undefined && content !== '') {
+				if (!this.getOpened) this._loading(selector,false);
 				this._showPopup(selector);
+				this._into(selector,content);
+				return false;
 			}
 			return false;
 		};
 		m.close = function(selector){
 			var options = jQuery(selector).data('options');
 			if (!options) return false;
-			this._loading(selector,false); 
+			m.openedSelectors[selector] = undefined;
 			$(options.selector+' .toggle_popup_scroll').hide();
-			$(options.mainContainer).css('position', 'relative');
-			$(options.mainContainer).css('top', 'auto');
-			$(options.mainContainer).css('left', 'auto');
-			$("html,body").scrollTop(options.nowpos);
+			this._loading(selector,false); 
+			this._shadow(selector,false);
 			if (options.callClose !== undefined) {
 				options.callClose();
 			}
 			$(selector + ' .popup_scroll_content').html('');
-			m.openedSelectors[selector] = undefined;
+			
 			return false;
 		};
 		m.content = function(selector,content){
@@ -1208,22 +1250,3 @@ mjsa = (function ($){
 }).call(mjsa,jQuery);
 // END SCROLL POPUP
 
-
-
-// ***** DEPRECATED ADDON (FOR SUPPORT OLDER APPLICATIONS) *****
-
-mjsa = (function ($){
-	var mthis = this;
-
-	if (mthis.def.appMeetVersion < 700) {
-		//[deprecated functions]
-
-		
-	}
-	
-
-	
-	return this;
-}).call(mjsa,jQuery);
-
-// ***** END DEPRECATED ADDON *****

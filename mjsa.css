@@ -1,14 +1,18 @@
-/*! mjsa.css - v0.7.0
+/*! mjsa.css - v1.0.0
 * https://github.com/madeS/mjsa
 * Copyright (c) 2013-2014 Andrei Bogarevich; Licensed MIT */
+/* Выбрать цвет http://www.tayloredmktg.com/rgb/ */
 .mjsa_hints_container{ position: fixed; top: 0; left: 0; width: auto; z-index:300;}
 .mjsa_hints_container .hintwrap{ display:none; clear:left;}
-.mjsa_hints_container .mjsa_hint { position: relative; float:left; clear:left; margin: 8px; color: #333; font-weight: bold; font-size: 14px; padding: 5px 25px 5px 5px; border-radius: 3px;}
-.mjsa_hints_container .mjsa_hint .close { cursor: pointer; position: absolute; top: 5px; right: 5px;  }
-.mjsa_hints_container .mjsa_hint .close:hover { color: #fff; background-color: #555; } 
-.mjsa_hints_container .mjsa_hint.mjsa_hint_success { background-color: #cfc;}
-.mjsa_hints_container .mjsa_hint.mjsa_hint_error { background-color: #fcc;}
-.mjsa_hints_container .mjsa_hint.mjsa_hint_simple { background-color: #ccf;}
+.mjsa_hints_container .mjsa_hint { position: relative; float:left; clear:left; margin: 8px; color: #333; font-weight: bold; font-size: 14px; padding: 6px 29px 6px 6px; border-radius: 3px;}
+.mjsa_hints_container .mjsa_hint .close { cursor: pointer; position: absolute; top: 5px; right: 4px; padding: 2px;  }
+.mjsa_hints_container .mjsa_hint .close:hover { color: #fff; text-shadow: 0px 0px 5px #000; } 
+.mjsa_hints_container .mjsa_hint.mjsa_hint_success { background-color: #70ef9f; }
+.mjsa_hints_container .mjsa_hint.mjsa_hint_error { background-color: #ef9e8a; }
+.mjsa_hints_container .mjsa_hint.mjsa_hint_simple { 
+	/*background-color: #b0c4de;*/
+	background-color: #c0d4f3; 
+}
 .m_incorrect {border: 1px solid #f33 !important;}
 .m_disable_cont {position: relative}
 .m_disable_layer {position:absolute; top: 0; left: 0; width:100%; height: 100%; display:none;}
@@ -84,17 +88,17 @@ span.tf{
 	-moz-transform: translateY(8px);
 	transform: translateY(8px);}
 
-.hint.hright:before {margin-left: -12px;margin-bottom: -6px; }
-.hint.hright:after {margin-bottom: -14px; }
-.hint.hright:before, .hint.hright:after {left: 100%;bottom: 50%;}
+.hint.hright:before {margin-left: -8px;margin-bottom: -6px; margin-top: auto;  }
+.hint.hright:after {margin-bottom: -14px; margin-left: 3px; }
+.hint.hright:before, .hint.hright:after {top:auto; left: 100%;bottom: 50%; }
 .hint.hright:hover:before, .hint.hright:hover:after {
 	-webkit-transform: translateX(8px);
 	-moz-transform: translateX(8px);
 	transform: translateX(8px); }
 
-.hint.hleft:before {margin-right: -12px;margin-bottom: -6px; }
-.hint.hleft:after {margin-bottom: -14px; }
-.hint.hleft:before, .hint.hleft:after {right: 100%;bottom: 50%; }
+.hint.hleft:before {margin-right: -8px; margin-bottom: -6px; margin-top: auto; margin-left: auto; }
+.hint.hleft:after {margin-bottom: -14px; margin-right: 3px; }
+.hint.hleft:before, .hint.hleft:after {top: auto; left: auto; right: 100%; bottom: 50%; }
 .hint.hleft:hover:before, .hint.hleft:hover:after {
 	-webkit-transform: translateX(-8px);
 	-moz-transform: translateX(-8px);
@@ -124,20 +128,20 @@ span.tf{
 .hint.hsuccess.hint.hleft:before {border-left-color: #458746; }
 .hint.hsuccess.hint.hright:before {border-right-color: #458746; }
 
-.hint.halways:after, .hint.halways:before {  opacity: 1; }
-.hint.halways.hint.htop:after, .hint.halways.hint.htop:before {
+.hint.hperm:after, .hint.hperm:before {  opacity: 1; }
+.hint.hperm.hint.htop:after, .hint.hperm.hint.htop:before {
 	-webkit-transform: translateY(-8px);
 	-moz-transform: translateY(-8px);
 	transform: translateY(-8px); }
-.hint.halways.hint.hbottom:after, .hint.halways.hint.hbottom:before {
+.hint.hperm.hint.hbottom:after, .hint.hperm.hint.hbottom:before {
 	-webkit-transform: translateY(8px);
 	-moz-transform: translateY(8px);
 	transform: translateY(8px); }
-.hint.halways.hint.hleft:after, .hint.halways.hint.hleft:before {
+.hint.hperm.hint.hleft:after, .hint.hperm.hint.hleft:before {
 	-webkit-transform: translateX(-8px);
 	-moz-transform: translateX(-8px);
 	transform: translateX(-8px); }
-.hint.halways.hint.hright:after, .hint.halways.hint.hright:before {
+.hint.hperm.hint.hright:after, .hint.hperm.hint.hright:before {
 	-webkit-transform: translateX(8px);
 	-moz-transform: translateX(8px);
 	transform: translateX(8px); }
