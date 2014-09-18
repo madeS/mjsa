@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v1.0.0.97
-	Last Mod: 2014-09-08 20:00
+	v1.0.0.98
+	Last Mod: 2014-09-18 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -373,7 +373,7 @@ var mjsa = new (function ($){
 						if (opt.callback) opt.callback();
 					}
 				} else {
-					mthis.html('body',content);
+					location.href = link;
 				}
 				mthis.loadCollectedParams(mthis.def.haSaveSelector,collected);
 				mthis._getAjaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
@@ -1249,4 +1249,3 @@ mjsa = (function ($){
 	return this;
 }).call(mjsa,jQuery);
 // END SCROLL POPUP
-
