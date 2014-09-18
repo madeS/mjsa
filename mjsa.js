@@ -173,14 +173,14 @@ var mjsa = new (function ($){
 			}
 			return data;
 		} else {
-			url = (url)? url+'?' : '';
+			url = url || '';
 			var paramStr = [];
 			for(var key in params){
 				if (params[key] !== ''){
 					paramStr.push(key+'='+encodeURIComponent(params[key]));
 				}
 			}
-			return url+paramStr.join('&');
+			return url+((url && paramStr)?'?':'')+paramStr.join('&');
 		}
 	};
 	
@@ -1249,3 +1249,404 @@ mjsa = (function ($){
 	return this;
 }).call(mjsa,jQuery);
 // END SCROLL POPUP
+
+
+/* 
+ * 
+**************************************************************
+Version History
+
+v1.0.0.98 (2014-09-18)
+bodyAjax, simple redirect if server not support
+
+v1.0.0.97 (2014-09-08)(0.9.0.96)
+creating documentation
+printHint - options, opt.live
+loadCollectedParams - upgrade
+css fixes 
+scrollPopup fixes
+remove opt.hash from location
+def.bodyAjax - inner param, switched on when bodyAjaxInit called
+autocomplete (opt.param => opt.params), fixes, crossdomain and etc
+scrollPopup fix whith second popup
+
+
+v0.8.2.94 (2014-08-13)
+textSelected - selected text in textarea and inputs
+
+v0.8.1.93 (2014-07-29)
+Text fixes
+
+v0.8.1.92 (2014-07-05)
+bodyAjax: saving scroll position
+scrollTo: add opts, add opt offset 
+
+v0.8.0.91 (2014-06-08)
+Rename functions and options
+onsupport older project
+
+v0.7.1.90 (2014-05-30)
+mjsa.get - get value or value of function
+easilyPostAjax optin simpleHtml
+
+v0.7.0.89 (2014-05-07)
+ext registerErrorsUrl
+total renaming mjs -> mjsa
+
+v0.6.15.88 (2014-03-28)
+add: <mjsa_separator/> to html actions, another quickend
+add func: urlParams
+
+v0.6.14.87 (2014-03-13)
+ext func: printHint permanent
+
+v0.6.13.86 (2014-03-12)
+mUploadForm
+easy fixes
+removed deprecated
+
+v0.6.12.85 (2014-02-14)
+easilypost ajax additional params for iframe auth without cookie
+
+v0.6.11.84 (2014-02-05)
+fix:autocompleate self to element
+ext func:autocomplete queryAttr
+ext func:autocomplete scrollerSelector (for scrolling with up key and down key)
+
+v0.6.11.83 (2014-01-28)
+ext func: Upload opt cancel: http abort
+ext func: Hints. closing hint
+ext func: bodyAjax: opt.callbefore(link,opt)
+chng: easilyPostAjax : callBefore now need return true to continue
+fix: easy code format
+
+v0.6.10.82 (2014-01-11)
+easyPostAjax: callback with postdata
+mFormSubmit: callback with postdata
+
+v0.6.9.81
+opt.param in mFormSubmit
+opt.isDoHtml in easilyPostAjax
+html: noservice_separator
+opt.ajaxtype in easilyPostAjax
+
+v0.6.8.80
+scrollTo timer 500 default
+scrollPopup fix: container width 100%;
+add fontello_mades_icons to mjsa.css
+
+v0.6.7.79
+mFormSubmit: errorSeparator, incorrectSeparator options
+
+v0.6.5.78
+getTimezone - timezone info from js 
+
+v0.6.4.77 (2013-11-27)
+_defAjaxError(), components now use _defAjaxError()
+
+v0.6.3.76 (2013-11-25)
+bodyAjax htmlInterception hot fix
+
+v0.6.2.75 (2013-11-19)
+scrollPopup hot fix for multiple popups (copy default options)
+
+v0.6.1.75 (2013-11-12)
+mjs upload. one file simple upload to support standart uploaders
+connection error hint in bodyAjax
+
+v0.6.1.74 (2013-11-08)
+mjs part: selected - work with selection
+
+v0.6.0.73 (2013-11-03)
+change default variables tree
+onClickEnterInit: new param: once
+new autocompleate - need test alpha
+
+v0.5.18.72 (2013-10-28)
+mForm callback disable btn fix
+
+v0.5.17.71 (2013-10-22)
+add intervalStack module
+scrollTo add time
+
+v0.5.16.70 (2013-10-08)
+collectParams: data-value in checkbox
+
+v0.5.15.69 (2013-10-04)
+_ajax: connection error hint;
+
+v0.5.15.68 (2013-09-27)
+add func: mFormSubmit // replaced coreFormSubmit from app.js
+
+v0.5.14.67 (2013-09-20)
+visual fix: _upload
+include hint.css by https://github.com/chinchang/hint.css with easy fixes
+in_array -> inArray
+add def: hintCall
+edit func: onClickEnterInit, enterClickDefCallback -> _callEnterClickDef
+hotfix: upload unsupport FormData
+
+v0.5.13.66 (2013-09-02)
+bodyAjax: fix async links
+fix: hints
+
+v0.5.12.65 (2013-09-01)
+loadCollectedParams: .take_html, [data-take=html]
+onClickEnterInit: attr onclickenter -> data-onenterclick (deprecated)
+collectParams, loadCollectedParams: attr name + attr data-name
+_getAjaxShadow add loader image
+
+v0.5.11.64 (2013-07-19)
+html: multiple html_replace_separator and etc. - need test
+easy fixes
+
+v0.5.10.63 (2013-07-17)
+fix: autocoplete (paste event)
+add bodyAjax_timeout for scrollPopup
+collectParams: .take_html, [data-take=html], ([take=html] - deprecated)
+
+v0.5.9.62 (2013-07-11)
+fix: upload (http undefined error)
+ext: _ajax (first request timeout)
+for bodyajax: timeout 5000ms
+
+v0.5.8.61 (2013-07-08)
+fix: bodyAjaxUpdate in old browsers - reload.
+
+v0.5.8.60 (2013-07-07)
+scrollPopup: save opened popups, and add closeAll func
+
+v0.5.7.59
+upload: return http for abort
+
+v0.5.7.58 (2013-07-06)
+Uploading files by html5 FormData
+func: in_array, upload
+
+v0.5.6.57 (2013-07-05)
+fix: autocomplete(minchars fix)
+
+v0.5.6.56 (2013-07-03)
+scrollPopup: use mjsa._ajax, if ajax error - autoclose popup and print hint
+
+v0.5.5.55
+func: getPosition (full offset for dom element)
+
+v0.5.4.54
+func: autocomplete[need ext]
+deprecated autoSearch
+
+v0.5.3.53
+ext: autoSearch (options)
+
+v0.5.2.52
+ext: bodyAjax (opt.noscroll)
+
+v0.5.2.51
+ext: collectParams (support ckeditor)
+fix: collectParams (val not required)
+
+v0.5.1.50
+fix: scrollPopup hide loading if not loaded
+
+v0.5.1.49
+fix: autoSearch $.parseJSON -> JSON.parse
+
+v0.5.1.48
+fix: scrollPopup - from content
+
+v0.5.0.47
+add func: webStorage
+
+v0.5 alpha build 46
+add func: geoLocation
+
+v0.5 alpha build 45
+remove deprecated funtions
+collectParams - add [take=html]
+loadCollectedParams [take=html support]
+format code
+rename = circleTimer
+	this._innerCircleTimerHandler => this._circleTimerHandler
+	this._innerCircleTimerCallback => this._circleTimerCallback
+	this.circleTimerInit => this.circleTimer
+add func: debug (debuging param to log)
+rename = bodyAjax
+	html5AjaxBody => bodyAjax
+	html5AjaxBodyUpdate => bodyAjaxUpdate
+	def.html5HistoryAjax => def.bodyAjax
+
+
+v0.4.3.43
+easilyPostAjax fixes
+
+v0.4.3.42
+html5AjaxBody - pushonly
+
+v0.4.2.41
+some fixes
+mjs_save selecor mthis.def.haSaveSelector
+
+v0.4.1.40
+fix func: _ajax (error status code show)
+fix func: bodyajax (if havnt container simple location)
+scroll_to(val) -> scrollTo(val)
+
+v0.4.0.39
+start creating deprecated addon with deprecated interface
+start creating submodels
+edit func: location
+
+v0.3.14.38
+scrollPopup codeinterface fix
+
+v0.3.13.37
+printHint animation
+
+v0.3.12.36
+fix: historyAjax - fix push eq. states
+
+v0.3.11.35
+ext mod: scrollPopup (class close btn)
+
+v0.3.10.34
+ext func: html (def.htmlInterception)
+fix func: html5historyAjax (location.pathname+location.search)
+
+v0.3.9.33
+fix: circleTimer
+mjs_save in AjaxBody (?)
+
+v0.3.8.32
+ext func: html (prepand_sepearator, html_prepand_sepearator)
+add func: circleTimerInit (easy stand alone timer)
+some easy fixes
+
+v0.3.7.31
+add func: loadCollectedParams
+ext func: html5AjaxBodyUpdate
+
+v0.3.6.30
+add func:html5AjaxBodyUpdate
+some easy fixes
+
+v0.3.5.29
+some easy fixes
+
+v0.3.5.28
+[deprecated] liveEnterClick -> onClickEnterInit(support ctrl+Enter) (support js func)
+
+v0.3.4.27
+add func: getByteLength (length bytes in utf8 string)
+
+v0.3.3.26
+jQuery 1.9 support
+	$.browser removed, scroll_to for html,body
+	.live -> .on
+liveEnterClick[deprecated] -> liveClickEnterInit
+
+v0.3.3.25
+hot fix: history ajax body (Google Chrome fix)
+
+v0.3.2.24
+ext: scroll popup (top parameter in options)
+edit: History ajax body (noajax no change location.href)
+edit: History ajax body (selector as parameter 'a' default)
+fix: print_r (add maxlevel for infinity rec)
+fix: History ajax body (with location problem, need support mm mjsa command if body_ajax)
+ext: History ajax body (html insert selector as parameter)
+
+v0.3.1.23
+hot fixes: scroll popup
+add ext: html5 History Body Ajax (noajax attr)
+
+v0.3.0.22
+~default variables
+add func: debugParam
+edit func: html support old fersions
+mjs_this -> mthis
+add func: html5AjaxBody
+add func: html5HistoryAjaxInit
+hot fix: print_r
+
+v0.2.7.21
+~edit:  ._ajax now used in easylyPostAjax 
+
+v0.2.6.20
++add func: grabResponseTag
+
+v0.2.5.19
++re_func: printError (rewrite)
+
+v0.2.4.18
+~setCookie form ajax prepare
+
+v0.2.4.17
++add ext: html (html_replace_separator, html_append_separator)
+
+v0.2.3.16
++add ext: html (error_separator)
+
+v0.2.2.15
++add func: _ajax (thriple ajax ) need test
++add func: s (selectable support)
+
+v0.2.2.14
+~edit~ext: autoSearch (callBefore, return query edit query,)
+
+v0.2.2.12
+~fix: scrollPopup (not jumping at top page after closing popap)
+~fix: scrollPopup (clear popup after closing)
+
+v0.2.1.10
++add option: autoSearch (callBefore, callAfter)
+
+v0.2.0.9
+~re-architect: init module with NEW, THIS contexts
+
+v0.1.6.8
+~reoption: scrollPopup (close_image -> close_btn)
+
+v0.1.5.7
++add option: scrollPopup (add(close_image=undefined),add(zindex),callOpen,callClose)
+
+v0.1.4.6
++submodel: scrollPopup
+
+v0.1.3.5
+~fix: collectParams (return {} if undefined selector, waitmessage internal)
+
+v0.1.2.4
++add func: autoSearch(need test, need ext)
++add func: liveEnterClick
+
+v0.1.1.3
++add ext: html(+append_separator)
++add func: browserContainer(for scrolls)
++add func: scroll_to(value)
++add func: collectParams(return params object by selector)
++add func: easilyPostAjax(url, insert_selector, post_obj, post_selector, add_callback, add_precall) 
+
+v0.1.1.2
++add func: print_r
++add ext: location(+hash)
++add ext: html(+alert_separator)
+
+v0.1.0.1
++add func: html (+redirect separator) (test)
++add func: location (+a_separator)(test)
+
+/////////////////////////////////////////////////////
+//// FUTURE /////////////////////////////////////////
+/////////////////////////////////////////////////////
+2) upload ( TODO: drag-and-drop)
+	http://learn.javascript.ru/xhr-onprogress
+	http://habrahabr.ru/post/154097/
+	http://xdan.ru/Working-with-files-in-JavaScript-Part-1-The-Basics.html
+	http://html5demos.com/file-api
+3) scrollPopup ( TODO: esc key - close)
+4) Phone input formatter
+5)  * 			$(window).scroll(function(){
+				if ($(document).height() - $(window).height() <= $(window).scrollTop() + options.bottomPixels)
+				{
+*/
