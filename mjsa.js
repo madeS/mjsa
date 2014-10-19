@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v1.0.0.98
-	Last Mod: 2014-09-18 20:00
+	v1.0.0.99
+	Last Mod: 2014-09-21 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -173,14 +173,14 @@ var mjsa = new (function ($){
 			}
 			return data;
 		} else {
-			url = (url)? url+'?' : '';
+			url = url || '';
 			var paramStr = [];
 			for(var key in params){
 				if (params[key] !== ''){
 					paramStr.push(key+'='+encodeURIComponent(params[key]));
 				}
 			}
-			return url+paramStr.join('&');
+			return url+((url && paramStr)?'?':'')+paramStr.join('&');
 		}
 	};
 	
@@ -372,6 +372,8 @@ var mjsa = new (function ($){
 						}
 						if (opt.callback) opt.callback();
 					}
+				}else if (content.indexOf('<mjsa_separator/>') === 0){
+					mjsa.html(mthis.def.service,content);
 				} else {
 					location.href = link;
 				}
