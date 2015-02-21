@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v1.0.0.99
-	Last Mod: 2014-09-21 20:00
+	v1.1.0.100
+	Last Mod: 2015-02-21 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -16,6 +16,7 @@ var mjsa = new (function ($){
 		bodyAjax_inselector: '#body_cont',  //body, 
 		bodyAjax_timeout: 5000,
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
+		bodyAjaxOnunloadFunc: undefined,  // reAttach events for destroy some objects for this page.
 		loadingImg: undefined, // '/pub/images/15.gif',
 		easilyDefObj: undefined, // obj or func (used for auth in iframe application)
 		haSaveSelector: '.mjsa_save', // history ajax save forms inputs selector
@@ -32,7 +33,7 @@ var mjsa = new (function ($){
 		},
 		hints: {
 			containerClass: 'mjsa_hints_container', //'mjsa_hints_container', undefined for alerts warnings, else need connect mjsa css
-			call: undefined, // application alerts or other action
+			callback: undefined, // application alerts or other action
 			mainClass: 'mjsa_hint',
 			successClass: 'mjsa_hint_success',
 			errorClass: 'mjsa_hint_error',
@@ -53,20 +54,25 @@ var mjsa = new (function ($){
 	this.printError = function(error_msg){
 		return mthis.printHint(error_msg,mthis.def.hints.errorClass);
 	};
-	this._createHintsContainer = function(){ 
-		$('body').append('<div class="'+mthis.def.hints.containerClass+'"></div>');
+	this._getHintsContainer = function(){ 
+		var ret = $('.'+mthis.def.hints.containerClass);
+		if (ret.length===0) {
+			$('body').append('<div class="'+mthis.def.hints.containerClass+'"></div>');
+			ret = $('.'+mthis.def.hints.containerClass);
+		}
+		return ret;
 	};
 	this.printHint = function(hint,className,opt){
 		opt = opt || {};
-		if (mthis.def.hints.call && !mthis.def.hints.call(hint,className)){
+		if (mthis.def.hints.callback && !mthis.def.hints.callback(hint,className)){
 			// do nothing
 		} else if (mthis.def.hints.containerClass){
 			if (!className) className = mthis.def.hints.simpleClass;
 			var ms = new Date(); var ms_time = ms.getTime();
-			if ($('.'+mthis.def.hints.containerClass).length===0) mthis._createHintsContainer();
-			$('.'+mthis.def.hints.containerClass).append(
+			var $hintCont = mthis._getHintsContainer();
+			$hintCont.append(
 					'<div class="hintwrap hint'+ms_time+'"><div class="'+mthis.def.hints.mainClass+' '+className+'">'+hint+'<span class="close '+mthis.def.hints.closeClass+'" onclick="$(this).parents(\'.hintwrap\').remove();" ></span></div></div>');
-			$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time).animate({height: "show"}, 300);
+			$hintCont.find('.hint'+ms_time).animate({height: "show"}, 300);
 			if (!opt.permanent){
 				window.setTimeout(function(){
 					$('.'+mthis.def.hints.containerClass).find('.hint'+ms_time+'')
@@ -258,7 +264,7 @@ var mjsa = new (function ($){
 	this.easilyPostAjax = function(url, insert_selector, post_obj, post_selector, callback, callBefore, opt){
 		opt = opt || {};
 		opt.disableClass = mthis.def.mform.disableClass;
-		post_obj = post_obj || {};
+		post_obj = mthis.get(post_obj) || {};
 		if (mthis.def.easilyDefObj) {
 			var ext = mthis.get(mthis.def.easilyDefObj);
 			post_obj = $.extend(ext, post_obj);
@@ -363,6 +369,9 @@ var mjsa = new (function ($){
 						}
 						document.title = content_separated[0];
 						mthis.currentPathname = link;
+						if (mthis.def.bodyAjaxOnunloadFunc){
+							mthis.def.bodyAjaxOnunloadFunc();
+						}
 						mthis.html(mthis.def.bodyAjax_inselector,content_separated[1]);
 						if (opt.scrollto !== undefined){
 							mthis.scrollTo(opt.scrollto,0);
@@ -568,10 +577,8 @@ var mjsa = new (function ($){
 				}
 			},
 			callAfter: function(obj){
-				$(selector).find('.mUpload').show();
+				$(selector).find('.mUpload').show().val('');
 				$(selector).find('.m_progressbar_container').hide()
-				var error = mjsa.grabResponseTag(obj.response,'<error_separator/>');
-				if (error){ mjsa.printError(error); return false; }
 				if (callback) callback(obj.response);
 				else mjsa.html(mthis.def.service,obj.response);
 			},			
@@ -686,7 +693,8 @@ var mjsa = new (function ($){
 		var form = new FormData(); 
 		//form.append('path', location.href);
 		if (opt.params){
-			for (var key in opt.params) form.append(key, opt.params[key]);
+			var params = mthis.get(opt.params);
+			for (var key in params) form.append(key, params[key]);
 		}
 		if (!opt.name) opt.name = 'thefiles';
 		for (var i = 0; i < files.length; i++) {
@@ -993,7 +1001,7 @@ var mjsa = new (function ($){
 				e.stopImmediatePropagation();
 				return false;
 			}
-			opt.params = opt.params || {};
+			opt.params = mthis.get(opt.params) || {};
 			opt.url = opt.url || '';
 			var self = this;
 			if (hndlr) clearTimeout(hndlr);
@@ -1103,11 +1111,11 @@ mjsa = (function ($){
 			str_html += options.selector+' .popup_scroll_shadow{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6; z-index: '+options.zindex+';}';
 			str_html += options.selector+' .popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options.zindex+1)+';}';
 			str_html += options.selector+' .popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options.zindex+1)+'; padding: 0 0 20px; min-height:100px; }';
-			str_html += options.selector+' .popup_scroll_body{ position: relative;  padding: '+options.padding_ver+'px '+options.padding_hor+'px; line-height: normal; background:#fff; }';
+			str_html += options.selector+' .popup_scroll_body{ position: relative;  line-height: normal; background:#fff; }';
 			if (options.closeBtnStyle !== undefined) {
 				str_html += options.selector+' .close_popup_scroll{ '+options.closeBtnStyle+' }';
 			}
-			str_html += options.selector+' .popup_scroll_content{ }';
+			str_html += options.selector+' .popup_scroll_content{  padding: '+options.padding_ver+'px '+options.padding_hor+'px; }';
 			str_html += '</style>';
 			// shadow
 			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
@@ -1188,7 +1196,7 @@ mjsa = (function ($){
 		};
 		m._into = function(selector, data){
 			var options = $(selector).data('options');
-			$(selector + ' .popup_scroll_content').html(data);
+			$(selector).find('.popup_scroll_content').html(data);
 			if (options.callOpen !== undefined) {
 				options.callOpen();
 			}
@@ -1229,17 +1237,16 @@ mjsa = (function ($){
 			return false;
 		};
 		m.close = function(selector){
-			var options = jQuery(selector).data('options');
+			var options = $(selector).data('options');
 			if (!options) return false;
-			m.openedSelectors[selector] = undefined;
-			$(options.selector+' .toggle_popup_scroll').hide();
-			this._loading(selector,false); 
-			this._shadow(selector,false);
+			m.openedSelectors[options.selector] = undefined;
+			$(options.selector).find('.toggle_popup_scroll').hide();
+			m._loading(selector,false); 
+			m._shadow(selector,false);
 			if (options.callClose !== undefined) {
 				options.callClose();
 			}
-			$(selector + ' .popup_scroll_content').html('');
-			
+			$(options.selector).find('.popup_scroll_content').html('');
 			return false;
 		};
 		m.content = function(selector,content){

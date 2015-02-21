@@ -8,7 +8,7 @@ MIT License
 
 **mjsa is free software under MIT License.**
 
-#### Copyright (c) 2012-2014 Andrei Bogarevich,<br />http://github.com/madeS/mjsa
+#### Copyright (c) 2012-2015 Andrei Bogarevich,<br />http://github.com/madeS/mjsa
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
