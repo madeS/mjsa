@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v1.1.0.100
-	Last Mod: 2015-02-21 20:00
+	v1.1.3.104
+	Last Mod: 2015-11-23 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -164,6 +164,17 @@ var mjsa = new (function ($){
 			var sct = $(value).offset().top;
 			if (opt.offset) sct += opt.offset;
 			item.animate({scrollTop: sct},opt.timer);
+		}
+		return false;
+	};
+	
+	this.isInWindow = function(el){
+		var scrollTop = $(window).scrollTop();
+		var windowHeight = $(window).height();
+		var $el = $(el);
+		var offset = el.offset();
+		if(offset && scrollTop <= offset.top && (el.height() + offset.top) < (scrollTop + windowHeight)){
+			return true;
 		}
 		return false;
 	};
@@ -373,6 +384,7 @@ var mjsa = new (function ($){
 							mthis.def.bodyAjaxOnunloadFunc();
 						}
 						mthis.html(mthis.def.bodyAjax_inselector,content_separated[1]);
+						mthis.loadCollectedParams(mthis.def.haSaveSelector,collected);
 						if (opt.scrollto !== undefined){
 							mthis.scrollTo(opt.scrollto,0);
 						}
@@ -386,7 +398,6 @@ var mjsa = new (function ($){
 				} else {
 					location.href = link;
 				}
-				mthis.loadCollectedParams(mthis.def.haSaveSelector,collected);
 				mthis._getAjaxShadow().queue(function(){$(this).animate({opacity: "hide"},150);$(this).dequeue();});
 			},
 			error:function(jqXHR, textStatus, errorThrown){
@@ -546,6 +557,7 @@ var mjsa = new (function ($){
 		maxFiles: 1,
 		oneFileSimple: true,
 		allowExt: ['jpg','jpeg','png','gif'],
+	multirequests: false
 	};
 	*/
 	this.mUploadForm = function(selector,callback,opt){
@@ -558,6 +570,7 @@ var mjsa = new (function ($){
 			maxFiles: 1,
 			oneFileSimple: true,
 			allowExt: ['jpg','jpeg','png','gif'],
+			multirequests: false
 		};
 		var mUploadOpt = $.extend(mthis.copy(def),{
 			callUnsupported: function(){
@@ -569,19 +582,28 @@ var mjsa = new (function ($){
 			},
 			callProcess: function(obj,info){
 				var percent = parseInt( info.loaded * 100 / info.total);
-				$(selector).find('.m_progressbar_container .track').css('width',''+percent+'%');
+				$(selector).find('.m_progressbar_container .filetrack').css('width',''+percent+'%');
 				if (percent >= 99){
-					$(selector).find('.m_progressbar_container .counter_text').html(opt.langFileProcess || 'Обработка файлов...');
+					$(selector).find('.m_progressbar_container .counter_text .counter_text_percent').html(opt.langFileProcess || 'Обработка файлa(ов)...');
 				} else {
-					$(selector).find('.m_progressbar_container .counter_text').html((opt.langUploaded || 'Загружено') + ' ' + parseInt(info.loaded / 1024) + ' КB / ' + parseInt(info.total / 1024) + ' KB');
+					$(selector).find('.m_progressbar_container .counter_text .counter_text_percent').html((opt.langUploaded || 'Загружено') + ' ' + parseInt(info.loaded / 1024) + ' КB / ' + parseInt(info.total / 1024) + ' KB');
 				}
 			},
-			callAfter: function(obj){
-				$(selector).find('.mUpload').show().val('');
-				$(selector).find('.m_progressbar_container').hide()
-				if (callback) callback(obj.response);
-				else mjsa.html(mthis.def.service,obj.response);
-			},			
+			callAfter: function(obj,doneInfo){
+				if (obj === undefined) obj = {};
+				if (!doneInfo || doneInfo.done === doneInfo.total){
+					$(selector).find('.mUpload').show().val('');
+					$(selector).find('.m_progressbar_container').hide()
+					if (callback) callback(obj.response);
+					else mjsa.html(mthis.def.service,obj.response);
+				} else {
+					var percent = parseInt(doneInfo.done * 100 / doneInfo.total);
+					$(selector).find('.m_progressbar_container .totaltrack').css('width',''+percent+'%');
+					$(selector).find('.m_progressbar_container .counter_text .counter_text_files').html(opt.langFileDone || 'Загрузка файлов ('+doneInfo.done+' из '+doneInfo.total+') : ');
+					doneInfo.done && mUploadOpt.multirequestsCallback && mUploadOpt.multirequestsCallback(obj.response)
+				}
+				
+			}			
 		},opt);
 		if (opt && opt.cancel) {
 			mUploadOpt.action = 'cancel';
@@ -589,11 +611,14 @@ var mjsa = new (function ($){
 			return false;
 		}
 		var html = '<input type="file" class="standart_input mUpload" '+((mUploadOpt.maxFiles > 1)?'multiple':'')+' name="'+mUploadOpt.name+'" />';
-		html += '<div class="m_progressbar_container" style="display:none;">'
-			html += '<div class="progressbar"><div class="track"></div></div>';
-			html += '<div class="m_cancel'+ ((opt.cancelClass)?' '+opt.cancelClass:'') +'" onclick="return mjsa.mUploadForm(\''+selector+'\',undefined,{cancel:true})">';
-				html += opt.cancelText || 'Cancel';
-			html += '</div><div class="counter_text"></div>';
+		html += '<div class="m_progressbar_container" style="display:none;">';
+		if (mUploadOpt.multirequests){
+		html	+= '<div class="progressbar"><div class="track totaltrack"></div></div>';
+		}
+		html	+= '<div class="progressbar"><div class="track filetrack"></div></div>';
+		html	+= '<div class="m_cancel'+ ((opt.cancelClass)?' '+opt.cancelClass:'') +'" onclick="return mjsa.mUploadForm(\''+selector+'\',undefined,{cancel:true})">';
+		html		+= opt.cancelText || 'Cancel';
+		html	+= '</div><div class="counter_text"><span class="counter_text_files"></span><span class="counter_text_percent"></span></div>';
 		html += '</div>';
 		$(selector).html(html);
 		mthis.upload(mUploadOpt);
@@ -618,7 +643,8 @@ var mjsa = new (function ($){
 		maxFiles: 15,
 		maxFilesException: function(file){},
 		allowExt: ['jpg','jpeg','png','gif'],
-		allowExtException: function(file){}
+		allowExtException: function(file){},
+		multirequests: false, // every file in single request
 	}; */
 	this.upload = function(opt){
 		// TODO: upload drag and drop
@@ -629,8 +655,10 @@ var mjsa = new (function ($){
 			if (opt.action === 'cancel'){
 				http = $(opt.inputFile).data('http');
 				$(opt.inputFile).val('');
-				http && http.abort(); 
-				opt.callAfter && opt.callAfter();
+				$(opt.inputFile).data('queue',[]);
+				http && http.abort(); // В нек браузерах выхывается error, и соответственно callAfterPriority повторно
+				if (opt.callAfterPriority) opt.callAfterPriority();
+				else opt.callAfter && opt.callAfter();
 				return false;
 			}
 			$(opt.inputFile).on('change',function(event){
@@ -640,8 +668,36 @@ var mjsa = new (function ($){
 					else mthis.printError('Browser is deprecated and not supported');
 				}
 				if (!files_info.length) return false;
-				http = mthis._upload(files_info,opt);
-				$(opt.inputFile).data('http',http);
+				if (opt.multirequests){
+					var files_info_arr = [];
+					for (var i = 0; i < files_info.length; i++) {
+						files_info_arr.push(files_info[i]);
+					}
+					$(opt.inputFile).data('queue',files_info_arr);
+					$(opt.inputFile).data('queue_total',files_info_arr.length);
+					opt.oneFileSimple = true;
+					opt.callAfterPriority = function(e){
+						var queue_files_info = $(opt.inputFile).data('queue');
+						var total = $(opt.inputFile).data('queue_total');
+						var done = total - queue_files_info.length;
+						if (queue_files_info.length){
+							var sub_files_info = [];
+							sub_files_info.push(queue_files_info.shift());
+							$(opt.inputFile).data('queue',queue_files_info);
+							
+							http = mthis._upload(sub_files_info, opt);
+							$(opt.inputFile).data('http',http);
+						}
+						if (opt.callAfter) {
+							return opt.callAfter(e,{done:done,total:total});
+						}
+						return false;
+					};
+					opt.callAfterPriority(undefined);
+				} else {
+					http = mthis._upload(files_info,opt);
+					$(opt.inputFile).data('http',http);
+				}
 			});
 		}
 		return http; 
@@ -673,7 +729,8 @@ var mjsa = new (function ($){
 			},false);
 			http.onreadystatechange = function () {
 				if (this.readyState == 4) {
-					opt.callAfter && opt.callAfter(this);
+					if (opt.callAfterPriority) opt.callAfterPriority(this);
+					else opt.callAfter && opt.callAfter(this);
 					if(this.status == 200) {
 						opt.callSuccess && opt.callSuccess(this,this.response);
 					} else {
@@ -685,7 +742,8 @@ var mjsa = new (function ($){
 				// Событие после которого также можно сообщить о загрузке файлов.// Но ответа с сервера уже не будет.// Можно удалить.
 			});
 			http.upload.addEventListener('error',function(e) {
-				opt.callAfter && opt.callAfter(this);
+				if (opt.callAfterPriority) opt.callAfterPriority(this);
+				else opt.callAfter && opt.callAfter(this);
 				opt.callError && opt.callError(this);
 				console.log('m_error'); console.log(e); // Паникуем, если возникла ошибка!
 			});
@@ -1004,9 +1062,9 @@ var mjsa = new (function ($){
 			opt.params = mthis.get(opt.params) || {};
 			opt.url = opt.url || '';
 			var self = this;
-			if (hndlr) clearTimeout(hndlr);
-			hndlr = setTimeout(function() {
-				clearTimeout(hndlr); //?
+			if (self.hndlr) clearTimeout(self.hndlr);
+			self.hndlr = setTimeout(function() {
+				clearTimeout(self.hndlr); //?
 				if (opt.collect){
 					opt.params = $.extend(opt.params,mthis.collectParams(opt.collect));
 				}
@@ -1036,7 +1094,7 @@ var mjsa = new (function ($){
 					} catch(ex) {
 						console.log('search error: response is:',data);
 					}
-					hndlr = false;
+					self.hndlr = null;
 				}},opt.crossDomain));
 			}, 400);
 			return true;
@@ -1084,7 +1142,6 @@ mjsa = (function ($){
 			modelName: 'mjsa.scrollPopup', // [versionedit]
 			mainContainer: '#container',
 			loadingImage: '/pub/images/loader.gif',
-			closeBtnStyle: undefined,
 			closeBtnClass: undefined,
 			zindex: 19,
 			callOpen:undefined,
@@ -1094,7 +1151,7 @@ mjsa = (function ($){
 		m.openedSelectors = {};
 		m.closeAll = function(){
 			for(var key in m.openedSelectors){
-				if (m.openedSelectors[key]) m.close(key);
+				if (m.openedSelectors[key]) m.close(key.split('#').join(''));
 			}
 		};
 		m.getOpened = function(){
@@ -1107,28 +1164,25 @@ mjsa = (function ($){
 		// 1)add support escape button to close opened popups
 		m._createPopup = function(options){
 			// style
+			var contSelector = '.scoll_popup_container.'+options.name;
 			var str_html = '<style>';
-			str_html += options.selector+' .popup_scroll_shadow{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6; z-index: '+options.zindex+';}';
-			str_html += options.selector+' .popup_scroll_loading{ display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center; z-index: '+(options.zindex+1)+';}';
-			str_html += options.selector+' .popup_scroll{ display: none; width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; left: 50%; margin-left: -'+((options.width+options.padding_hor)/2)+'px; position: fixed; z-index: '+(options.zindex+1)+'; padding: 0 0 20px; min-height:100px; }';
-			str_html += options.selector+' .popup_scroll_body{ position: relative;  line-height: normal; background:#fff; }';
-			if (options.closeBtnStyle !== undefined) {
-				str_html += options.selector+' .close_popup_scroll{ '+options.closeBtnStyle+' }';
-			}
-			str_html += options.selector+' .popup_scroll_content{  padding: '+options.padding_ver+'px '+options.padding_hor+'px; }';
+			str_html += contSelector+' .popup_scroll_shadow{z-index: '+options.zindex+';}';
+			str_html += contSelector+' .popup_scroll_loading{z-index: '+(options.zindex+1)+';}';
+			str_html += contSelector+' .popup_scroll{width: '+(options.width+options.padding_hor)+'px; top: '+options.top+'px; margin-left: -'+((options.width+options.padding_hor)/2)+'px; z-index: '+(options.zindex+1)+';}';
+			str_html += contSelector+' .popup_scroll_content{padding: '+options.padding_ver+'px '+options.padding_hor+'px; }';
 			str_html += '</style>';
 			// shadow
-			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
+			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.name+'\')"></div>';
 			// popup container
-			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"><img src="'+options.loadingImage+'" alt="loading" style="margin: 0 auto;" /></div>';
+			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.name+'\')"><img src="'+options.loadingImage+'" alt="loading" style="margin: 0 auto;" /></div>';
 			str_html += '<div class="popup_scroll toggle_popup_scroll">';
 				// popup body
 				str_html += '<div class="popup_scroll_body">';
 					// popup close botton
-					if (options.closeBtnStyle !== undefined) {
+					if (options.closeBtnClass !== undefined) {
 						str_html += '<div href="#" class="close_popup_scroll';
 						if (options.closeBtnClass) str_html += ' '+options.closeBtnClass;
-						str_html += '" onclick="return '+options.modelName+'.close(\''+options.selector+'\')"></div>';
+						str_html += '" onclick="return '+options.modelName+'.close(\''+options.name+'\')"></div>';
 					}
 					// popup content
 					str_html += '<div class="popup_scroll_content"><br/><br/><br/>What?</div>';
@@ -1186,11 +1240,7 @@ mjsa = (function ($){
 		};
 		m._createParent = function(selector){
 			if (!($(selector).length > 0)) {
-				if (selector.indexOf('#') !== -1) {
-					$('body').append('<div id="'+selector.substring(selector.indexOf('#')+1)+'"> </div>');
-				} else {
-					alert('Cant create element: '+ selector);
-				}
+				$('body').append('<div id="'+selector+'" class="scoll_popup_container '+selector+'"> </div>');
 			}
 			return false;
 		};
@@ -1202,17 +1252,24 @@ mjsa = (function ($){
 			}
 			return false;
 		};
-		m.init = function(selector, options){
-			this._createParent(selector);
-			options.selector = selector;
+		m._getSelector = function(name){
+			return '#'+name;
+		};
+		m.init = function(name, options){
+			this._createParent(name);
+			options.name = name;
+			options.selector = '#'+name;
 			var opt = $.extend(mthis.copy(defOptions), options);
-			$(selector).data('options',opt);
+			$(options.selector).data('options',opt);
 			this._createPopup(opt);
 			return false;
 		};
-		m.open = function(selector, url, content){
-			this._shadow(selector,true);
-			this._loading(selector,true);
+		
+		m.open = function(name, url, content){
+			var selector = m._getSelector(name);
+			m._shadow(selector,true);
+			m._loading(selector,true);
+			
 			m.openedSelectors[selector] = true;
 			var tthis = this;
 			if (url !== undefined) {
@@ -1232,11 +1289,13 @@ mjsa = (function ($){
 				if (!this.getOpened) this._loading(selector,false);
 				this._showPopup(selector);
 				this._into(selector,content);
+				this._loading(selector,false);
 				return false;
 			}
 			return false;
 		};
-		m.close = function(selector){
+		m.close = function(name){
+			var selector = m._getSelector(name);
 			var options = $(selector).data('options');
 			if (!options) return false;
 			m.openedSelectors[options.selector] = undefined;
@@ -1258,3 +1317,4 @@ mjsa = (function ($){
 	return this;
 }).call(mjsa,jQuery);
 // END SCROLL POPUP
+

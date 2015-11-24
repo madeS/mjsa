@@ -1,4 +1,4 @@
-/*! mjsa.css - v1.1.0
+/*! mjsa.css - v1.1.1
 * https://github.com/madeS/mjsa
 * Copyright (c) 2013-2014 Andrei Bogarevich; Licensed MIT */
 /* Выбрать цвет http://www.tayloredmktg.com/rgb/ */
@@ -36,6 +36,13 @@ span.tf{
 .m_progressbar_container .progressbar .track{ height: 100%; width:0%; background-color: #000; }
 .m_progressbar_container .counter_text{ margin-top: 5px; }
 .m_progressbar_container .m_cancel{ float: right;  margin-top: 5px; }
+
+/*scrollPopup*/
+.scoll_popup_container .popup_scroll_shadow {display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0.6;}
+.scoll_popup_container .popup_scroll_loading {display: none; position: fixed; top: 100px; left: 0; width: 100%; height: 100%;  text-align:center;}
+.scoll_popup_container .popup_scroll{ display: none; left: 50%; position: fixed; padding: 0 0 20px; min-height:100px; }
+.scoll_popup_container .popup_scroll_body{position: relative; line-height: normal; background:#fff; box-shadow: 0px 2px 20px 5px #414141; }
+.scoll_popup_container .close_popup_scroll{ cursor:pointer; position: absolute; right: 3px; top: 3px; font-size:25px; }
 
 
 /*! Hint.css - v0.1.0 - 2013-02-03
