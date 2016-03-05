@@ -3,8 +3,8 @@
 	Author: Andrei Bogarevich
 	License:  MIT License
 	Site: https://github.com/madeS/mjsa
-	v1.1.3.104
-	Last Mod: 2015-11-23 20:00
+	v1.1.4.107
+	Last Mod: 2016-01-29 20:00
 */
 var mjsa = new (function ($){
 	var mthis = this; 
@@ -17,12 +17,13 @@ var mjsa = new (function ($){
 		bodyAjax_timeout: 5000,
 		bodyAjaxOnloadFunc: undefined,  // reAttach events for dom and etc.
 		bodyAjaxOnunloadFunc: undefined,  // reAttach events for destroy some objects for this page.
-		loadingImg: undefined, // '/pub/images/15.gif',
+		loadingBlock: undefined, // '<img src="/pub/images/15.gif" alt="" />',
 		easilyDefObj: undefined, // obj or func (used for auth in iframe application)
 		haSaveSelector: '.mjsa_save', // history ajax save forms inputs selector
 		registerErrorsUrl: undefined,//'/mop/mopapi/server_error_register',
 		mform: {
 			selector: '.m_form', // mForm Selector
+			scrollToIncorrectAttr: 'data-scrolltoincorrect', // 
 			disableClass: 'disable', // mForm disable class when btn pressed
 			inSelector: '.in', // mForm inner selector for collect params
 			errorSelector: '.in_error', // mForm error selector to set error text
@@ -318,7 +319,10 @@ var mjsa = new (function ($){
 				if (opt.callback && !opt.callback(response,data,el)) return false;
 				var incorrect = mthis.grabResponseTag(response,opt.incorrectSeparator);
 				if (incorrect){
-					$(el).parents(opt.selector).find('[name='+incorrect+']').addClass(opt.incorrectClass);
+					var $input = $(el).parents(opt.selector).find('[name='+incorrect+']').addClass(opt.incorrectClass);
+					if ($(el).parents(opt.selector).attr(opt.scrollToIncorrectAttr)){
+						mthis.scrollTo($input);
+					}
 				}
 				var error_msg = mthis.grabResponseTag(response,opt.errorSeparator);
 				if (error_msg){
@@ -336,7 +340,7 @@ var mjsa = new (function ($){
 	// *** "HTML5 History" Body Ajax [BETA] ***
 	this._getAjaxShadow = function(){
 		var inner = '';
-		if(mthis.def.loadingImg) inner += '<img class="mjsa_loader" src="'+mthis.def.loadingImg+'">';
+		if(mthis.def.loadingBlock) inner += ''+mthis.def.loadingBlock+'';
 		if($('.mjsa_ajax_shadow').length === 0) $('body').append('<div class="mjsa_ajax_shadow" onclick="$(this).hide();"><div class="inner"></div>'+inner+'</div>'); // [TODO: remove inner, use rgba]
 		return $('.mjsa_ajax_shadow');
 	};
@@ -386,7 +390,7 @@ var mjsa = new (function ($){
 						mthis.html(mthis.def.bodyAjax_inselector,content_separated[1]);
 						mthis.loadCollectedParams(mthis.def.haSaveSelector,collected);
 						if (opt.scrollto !== undefined){
-							mthis.scrollTo(opt.scrollto,0);
+							mthis.scrollTo(opt.scrollto,{timer:0});
 						}
 						if (mthis.def.bodyAjaxOnloadFunc){
 							mthis.def.bodyAjaxOnloadFunc();
@@ -591,16 +595,17 @@ var mjsa = new (function ($){
 			},
 			callAfter: function(obj,doneInfo){
 				if (obj === undefined) obj = {};
+				if (doneInfo){
+					var percent = parseInt(doneInfo.done * 100 / doneInfo.total);
+					$(selector).find('.m_progressbar_container .totaltrack').css('width',''+percent+'%');
+					$(selector).find('.m_progressbar_container .counter_text .counter_text_files').html(opt.langFileDone || 'Загрузка файлов ('+doneInfo.done+' из '+doneInfo.total+') : ');
+					doneInfo.done && mUploadOpt.multirequestsCallback && mUploadOpt.multirequestsCallback(obj.response)
+				}
 				if (!doneInfo || doneInfo.done === doneInfo.total){
 					$(selector).find('.mUpload').show().val('');
 					$(selector).find('.m_progressbar_container').hide()
 					if (callback) callback(obj.response);
 					else mjsa.html(mthis.def.service,obj.response);
-				} else {
-					var percent = parseInt(doneInfo.done * 100 / doneInfo.total);
-					$(selector).find('.m_progressbar_container .totaltrack').css('width',''+percent+'%');
-					$(selector).find('.m_progressbar_container .counter_text .counter_text_files').html(opt.langFileDone || 'Загрузка файлов ('+doneInfo.done+' из '+doneInfo.total+') : ');
-					doneInfo.done && mUploadOpt.multirequestsCallback && mUploadOpt.multirequestsCallback(obj.response)
 				}
 				
 			}			
@@ -1141,22 +1146,22 @@ mjsa = (function ($){
 			padding_ver: 15,
 			modelName: 'mjsa.scrollPopup', // [versionedit]
 			mainContainer: '#container',
-			loadingImage: '/pub/images/loader.gif',
+			loadingBlock: '/pub/images/loader.gif',
 			closeBtnClass: undefined,
 			zindex: 19,
 			callOpen:undefined,
 			callClose:undefined
 		};
 		var m = {};
-		m.openedSelectors = {};
+		m.openedPopups = {};
 		m.closeAll = function(){
-			for(var key in m.openedSelectors){
-				if (m.openedSelectors[key]) m.close(key.split('#').join(''));
+			for(var key in m.openedPopups){
+				if (m.openedPopups[key]) m.close(key);
 			}
 		};
 		m.getOpened = function(){
-			for(var key in m.openedSelectors){
-				if (m.openedSelectors[key]) return key;
+			for(var key in m.openedPopups){
+				if (m.openedPopups[key]) return key;
 			} 
 			return undefined;
 		};
@@ -1174,7 +1179,7 @@ mjsa = (function ($){
 			// shadow
 			str_html += '<div class="popup_scroll_shadow toggle_popup_scroll" onclick="return '+options.modelName+'.close(\''+options.name+'\')"></div>';
 			// popup container
-			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.name+'\')"><img src="'+options.loadingImage+'" alt="loading" style="margin: 0 auto;" /></div>';
+			str_html += '<div class="popup_scroll_loading" onclick="return '+options.modelName+'.close(\''+options.name+'\')">'+options.loadingBlock+'</div>';
 			str_html += '<div class="popup_scroll toggle_popup_scroll">';
 				// popup body
 				str_html += '<div class="popup_scroll_body">';
@@ -1200,11 +1205,9 @@ mjsa = (function ($){
 			}
 			if (m.getOpened()) return false;
 			if (show){
-				var nowpos = self.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop);
+				var nowpos = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop);
 				var con_width = $(options.mainContainer).css('width');
 				var body_width = $('body').css('width');
-				var nowpos1 = parseInt(nowpos);
-				nowpos1+=50;
 				var con_width1 = parseInt(con_width);
 				var body_width1 = parseInt(body_width);
 				var left_p1 = (body_width1 - con_width1)/2;
@@ -1216,7 +1219,7 @@ mjsa = (function ($){
 				$(options.mainContainer).css('position', 'relative');
 				$(options.mainContainer).css('top', 'auto');
 				$(options.mainContainer).css('left', 'auto');
-				$("html,body").scrollTop(options.nowpos);				
+				mthis.scrollTo(options.nowpos,{timer:0})
 			}
 			$(selector).data('options',options);
 			return false;
@@ -1238,15 +1241,15 @@ mjsa = (function ($){
 			$(options.selector+' .popup_scroll').css('top', options.top+'px');
 			return false;
 		};
-		m._createParent = function(selector){
-			if (!($(selector).length > 0)) {
-				$('body').append('<div id="'+selector+'" class="scoll_popup_container '+selector+'"> </div>');
+		m._createParent = function(name){
+			if (!($('#'+name).length > 0)) {
+				$('body').append('<div id="'+name+'" class="scoll_popup_container '+name+'"> </div>');
 			}
 			return false;
 		};
 		m._into = function(selector, data){
 			var options = $(selector).data('options');
-			$(selector).find('.popup_scroll_content').html(data);
+			mthis.html($(selector).find('.popup_scroll_content'),data);
 			if (options.callOpen !== undefined) {
 				options.callOpen();
 			}
@@ -1270,7 +1273,7 @@ mjsa = (function ($){
 			m._shadow(selector,true);
 			m._loading(selector,true);
 			
-			m.openedSelectors[selector] = true;
+			m.openedPopups[name] = true;
 			var tthis = this;
 			if (url !== undefined) {
 				mthis._ajax({
@@ -1281,15 +1284,14 @@ mjsa = (function ($){
 						tthis._into(selector,data);
 					},
 					error:function(jqXHR, textStatus, errorThrown){
-						tthis.close(selector);
+						tthis.close(selector.split('#').join(''));
 						mthis._defAjaxError(jqXHR, textStatus, errorThrown);
 					}
 				});
 			} else if (content !== undefined && content !== '') {
-				if (!this.getOpened) this._loading(selector,false);
+				this._loading(selector,false);
 				this._showPopup(selector);
 				this._into(selector,content);
-				this._loading(selector,false);
 				return false;
 			}
 			return false;
@@ -1298,7 +1300,8 @@ mjsa = (function ($){
 			var selector = m._getSelector(name);
 			var options = $(selector).data('options');
 			if (!options) return false;
-			m.openedSelectors[options.selector] = undefined;
+			if (!m.openedPopups[name]) return false;
+			m.openedPopups[name] = undefined;
 			$(options.selector).find('.toggle_popup_scroll').hide();
 			m._loading(selector,false); 
 			m._shadow(selector,false);
@@ -1317,4 +1320,3 @@ mjsa = (function ($){
 	return this;
 }).call(mjsa,jQuery);
 // END SCROLL POPUP
-
